@@ -32,30 +32,42 @@ REPOS = ROOT / ".attest/corpora/metadata-exposed-v1"
 WORK = ROOT / ".attest/corpora/natural-pair-original-tests"
 
 
-def overlay_original_test(tree: Path, test_path: str, payload: bytes) -> None:
-    """Copy oracle bytes only into an existing regular file within the source tree."""
+def overlay_original_test(
+    tree: Path, test_path: str, payload: bytes, *, allow_new: bool = False,
+) -> None:
+    """Copy oracle bytes into a regular file; new original modules require opt-in."""
     relative = PurePosixPath(test_path)
     if (relative.is_absolute() or ".." in relative.parts or "\\" in test_path
             or relative.as_posix() != test_path or not test_path.endswith(".py")
             or any((tree / part).is_symlink() for part in (relative, *relative.parents))
-            or not (tree / relative).is_file()):
+            or ((tree / relative).exists() and not (tree / relative).is_file())
+            or (not allow_new and not (tree / relative).is_file())):
         raise ValueError("unsafe original-test overlay target")
+    (tree / relative).parent.mkdir(parents=True, exist_ok=True)
     (tree / relative).write_bytes(payload)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--study", choices=("natural", "remainder"), default="natural")
-    remainder = parser.parse_args().study == "remainder"
+    parser.add_argument("--study", choices=("natural", "remainder", "remainder-font-cache"),
+                        default="natural")
+    mode = parser.parse_args().study
+    prewarmed = mode == "remainder-font-cache"
+    remainder = mode != "natural"
     study = ROOT / "benchmarks/studies/remainder-v1" if remainder else STUDY
     runtime_root = (
+        ROOT / ".attest/corpora/remainder-font-cache-runtime" if prewarmed else
         ROOT / ".attest/corpora/remainder-setup-declaration-runtime" if remainder else RUNTIME
     )
     builds_root = ROOT / ".attest/corpora/remainder-safe-link-build" if remainder else BUILDS
     inputs_root = ROOT / ".attest/corpora/remainder-v1-oracles" if remainder else INPUTS
     repos_root = REPOS
-    work_root = ROOT / ".attest/corpora/remainder-original-tests" if remainder else WORK
+    work_root = (
+        ROOT / ".attest/corpora/remainder-prewarmed-original-tests" if prewarmed else
+        ROOT / ".attest/corpora/remainder-original-tests" if remainder else WORK
+    )
     runtime_evidence = (
+        "font-cache-runtime-evidence" if prewarmed else
         "setup-declaration-runtime-evidence" if remainder else "source-runtime-evidence"
     )
     build_evidence = "safe-link-build-evidence" if remainder else "build-evidence"
@@ -107,7 +119,9 @@ def main() -> None:
         "development_witnesses": 0,
         "code_sha": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
         "driver_sha256": sha256_bytes(Path(__file__).read_bytes()),
-        "protocol_sha256": sha256_bytes((study / "compatibility/original-tests.md").read_bytes()),
+        "protocol_sha256": sha256_bytes((study / "compatibility" / (
+            "prewarmed-original-tests.md" if prewarmed else "original-tests.md"
+        )).read_bytes()),
         "runtime_record_sha256": sha256_bytes(runtime_bytes),
         "oracle_manifest_sha256": sha256_bytes(oracle_manifest_bytes),
         "rows": [
@@ -218,9 +232,13 @@ def main() -> None:
                 if remainder and any(ready["transfer"].get(k) != v for k, v in transfer.items()):
                     raise ValueError("wheel transfer differs from frozen readiness record")
                 write_canonical_json(work / (case["side"] + "-transfer.json"), transfer)
-                if not (tree / test_path).is_file() or not (tree / anchors[0]).is_file():
+                if (not prewarmed and not (tree / test_path).is_file()) or not (
+                    tree / anchors[0]
+                ).is_file():
                     raise ValueError("original test or anchored source absent")
-                overlay_original_test(tree, test_path, test_bytes)
+                existed = (tree / test_path).is_file()
+                overlay_original_test(tree, test_path, test_bytes, allow_new=prewarmed)
+                row.setdefault("test_context_added", {})[case["side"]] = not existed
                 trees.append(tree)
             row.update(
                 nodes=nodes,
