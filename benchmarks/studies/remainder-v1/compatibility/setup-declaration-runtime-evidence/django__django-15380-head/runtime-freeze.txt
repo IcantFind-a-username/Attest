@@ -1,0 +1,10 @@
+asgiref @ file:///wheelhouse/asgiref-3.5.0-py3-none-any.whl
+attrs @ file:///wheelhouse/attrs-26.1.0-py3-none-any.whl
+iniconfig @ file:///wheelhouse/iniconfig-2.3.0-py3-none-any.whl
+packaging==26.3
+pluggy @ file:///wheelhouse/pluggy-1.6.0-py3-none-any.whl
+py @ file:///wheelhouse/py-1.11.0-py2.py3-none-any.whl
+pytest @ file:///wheelhouse/pytest-6.2.5-py3-none-any.whl
+pytz @ file:///wheelhouse/pytz-2021.3-py2.py3-none-any.whl
+sqlparse @ file:///wheelhouse/sqlparse-0.4.2-py3-none-any.whl
+toml @ file:///wheelhouse/toml-0.10.2-py2.py3-none-any.whl

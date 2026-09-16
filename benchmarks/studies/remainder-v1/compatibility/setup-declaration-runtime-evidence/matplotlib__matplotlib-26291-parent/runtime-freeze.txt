@@ -1,0 +1,16 @@
+contourpy @ file:///wheelhouse/contourpy-1.1.0-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl
+cycler @ file:///wheelhouse/cycler-0.11.0-py3-none-any.whl
+exceptiongroup @ file:///wheelhouse/exceptiongroup-1.3.1-py3-none-any.whl
+fonttools @ file:///wheelhouse/fonttools-4.40.0-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl
+iniconfig @ file:///wheelhouse/iniconfig-2.3.0-py3-none-any.whl
+kiwisolver @ file:///wheelhouse/kiwisolver-1.4.4-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl
+numpy @ file:///wheelhouse/numpy-1.25.1-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl
+packaging @ file:///wheelhouse/packaging-23.1-py3-none-any.whl
+Pillow @ file:///wheelhouse/Pillow-10.0.0-cp310-cp310-manylinux_2_28_aarch64.whl
+pluggy @ file:///wheelhouse/pluggy-1.6.0-py3-none-any.whl
+pyparsing @ file:///wheelhouse/pyparsing-3.1.0-py3-none-any.whl
+pytest @ file:///wheelhouse/pytest-7.4.0-py3-none-any.whl
+python-dateutil @ file:///wheelhouse/python_dateutil-2.8.2-py2.py3-none-any.whl
+six @ file:///wheelhouse/six-1.17.0-py2.py3-none-any.whl
+tomli @ file:///wheelhouse/tomli-2.4.1-py3-none-any.whl
+typing_extensions @ file:///wheelhouse/typing_extensions-4.16.0-py3-none-any.whl

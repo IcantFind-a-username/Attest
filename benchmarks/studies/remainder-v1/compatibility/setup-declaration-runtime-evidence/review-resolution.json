@@ -1,0 +1,1 @@
+{"code_sha":"587b1cac40890c7d9914da6838ba82bd57d5b446","finding":"setup import alias overwrite","focused_passed":55,"full_gate":"not_yet_run_on_this_code","model_api_spend_usd":0,"mypy":"pass","regression_red_log":".attest/setup-version-review-red.log","ruff":"pass","status":"fixed"}
