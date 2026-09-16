@@ -1,0 +1,10 @@
+cycler<=0.11.0
+kiwisolver<=1.4.1
+numpy<=1.22.3
+pillow<=9.0.1
+pip<=22.0.4
+pyparsing<=3.0.7
+pytest<=7.1.1
+python-dateutil<=2.8.2
+setuptools<=61.2.0
+wheel<=0.37.1
