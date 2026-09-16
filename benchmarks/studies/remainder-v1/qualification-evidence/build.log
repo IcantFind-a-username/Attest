@@ -1,0 +1,16 @@
+docker.io/library/python@sha256:94c362db08c5b38857943d31b10558ff1856e918605c474d205d72a534929d4e: Pulling from library/python
+Digest: sha256:94c362db08c5b38857943d31b10558ff1856e918605c474d205d72a534929d4e
+Status: Image is up to date for python@sha256:94c362db08c5b38857943d31b10558ff1856e918605c474d205d72a534929d4e
+docker.io/library/python@sha256:94c362db08c5b38857943d31b10558ff1856e918605c474d205d72a534929d4e
+django__django-17084-parent refused
+django__django-17084-head refused
+matplotlib__matplotlib-22719-parent refused
+matplotlib__matplotlib-22719-head refused
+django__django-15380-parent refused
+django__django-15380-head refused
+matplotlib__matplotlib-26291-parent refused
+matplotlib__matplotlib-26291-head refused
+django__django-15554-parent refused
+django__django-15554-head refused
+matplotlib__matplotlib-24177-parent refused
+matplotlib__matplotlib-24177-head refused

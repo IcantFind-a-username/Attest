@@ -656,3 +656,9 @@ Approved cap and settled total unchanged.
 Six guarded executions establish one development natural-pair witness; one other
 pair remains runtime-unqualified. No provider call, reservation, push or release.
 Approved cap and settled total unchanged.
+
+**2026-09-16 — D-281 final remainder qualification: $0.00 model/API spend.**
+Metadata freeze, independent source reviews and twelve revision export refusals;
+no original-test execution, paid reservation, provider call, push or release.
+Approved cap, settled total and remaining headroom are unchanged. Study terminates
+below its preregistered minimum; no smaller paid substitute was dispatched.

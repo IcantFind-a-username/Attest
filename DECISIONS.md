@@ -2887,3 +2887,10 @@ Reversal: any artifact/provenance mismatch invalidates the affected compatibilit
 - Limit: one development witness, no product review/receipt or paid-qualified population; original human tests and prior blind reviews provide semantics (INV-TRUTH-001).
 - Consequence: minimum three defects/three controls across two repositories remains unmet; no backfill, fee or default change. No prior study superseded; revert script to roll back interface.
 - Files: original-test driver/protocol and [report/evidence](docs/acceptance/2026-09-16-natural-pair-original-tests.md); one review, no blocker, static checks pass; API spend $0.
+
+### D-281 — 2026-09-16: final remainder qualification stops at export refusal
+Status: terminal shortfall; authorized remainder protocol only, no paid dispatch or default change.
+Evidence: 34 frozen candidates, six agreed source pairs; all twelve revisions refused tracked-symlink export; 16/40 source controls, none runtime-qualified.
+Consequence: minimum 3+3 across two repositories unmet; no product recall/precision claim, no replacement or outcome-dependent retry.
+Reversal requires a separately authorized safe-export qualification protocol; prior studies and this result remain immutable (INV-TRUTH-001, no-unmeasured-claim).
+Files/evidence: docs/acceptance/2026-09-16-remainder-qualification.md; scripts/corpus/remainder_qualification.py and swebench_compatible_build.py; measurement-only, Ruff/diff checks passed, no product tests changed.

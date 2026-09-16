@@ -1,0 +1,1 @@
+{"finding":"Current inspected but unagreed defect pair must exclude a control","reproduction":{"after":true,"before":false},"review_sha256":"484f0ad321ce7d3af5fd672fcf5264d60bde85023f94faa0d24d3d0205cf859c","scope":"Pure assignment reproduction; no corpus execution or new helper","source_sha256":"6a414b20fea75fbd42fb2117956e6d0abfc60488c2b948707bededb8b462f00a"}
