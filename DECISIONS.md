@@ -2880,3 +2880,10 @@ Reversal: any artifact/provenance mismatch invalidates the affected compatibilit
 - Limit: one runtime-ready case, zero original-test witnesses or qualified defects/controls; no product recall/FPR claim (INV-TRUTH-001, G-MEASURE-004).
 - Consequence: proceed only to a frozen original-human-test natural-pair witness; paid minimum/defaults unchanged, no superseded result. Reverse by reverting adapter, preserve evidence.
 - Files: source runtime driver, compatibility protocol/evidence; [report](docs/acceptance/2026-09-16-natural-pair-source-runtime.md). No new utilities; model/API spend $0.
+
+### D-280 — Original-test natural regression witness (2026-09-16, measured)
+- Scope: committed `37ac0a8` reuses the guarded in-tree executor with identical original test-module bytes on natural parent/head; no production repair overlay.
+- Evidence: Astropy parent PASS 3/3 and introducing head FAIL 3/3, exact node/bytes, zero errors/skips/xfails, mounted anchor trace. sklearn remains runtime-unqualified.
+- Limit: one development witness, no product review/receipt or paid-qualified population; original human tests and prior blind reviews provide semantics (INV-TRUTH-001).
+- Consequence: minimum three defects/three controls across two repositories remains unmet; no backfill, fee or default change. No prior study superseded; revert script to roll back interface.
+- Files: original-test driver/protocol and [report/evidence](docs/acceptance/2026-09-16-natural-pair-original-tests.md); one review, no blocker, static checks pass; API spend $0.

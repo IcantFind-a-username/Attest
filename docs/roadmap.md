@@ -38,6 +38,12 @@ Quantitative gates are in [`acceptance/evolution-gates.md`](acceptance/evolution
 
 ## 2. Honest baseline
 
+- **2026-09-16 — D-280 original-test natural witness:** Astropy's same upstream
+  node passes on parent and fails on introducing head in all three repeats;
+  sklearn remains runtime-unqualified. This is one development case, not product
+  recall. Paid population minimum and independent controls remain unmet.
+  [Evidence](acceptance/2026-09-16-natural-pair-original-tests.md).
+
 - **2026-09-16 — D-279 natural-pair source runtime:** both Astropy revisions pass
   source-origin execution after the generic native fixture. Both scikit-learn
   build failures remain not runnable. One runtime-ready case is not a defect

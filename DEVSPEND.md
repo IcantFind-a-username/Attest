@@ -651,3 +651,8 @@ reservation, push or release. Approved cap and settled total unchanged.
 One native fixture and two Astropy revision executions; two prior failed build
 records retained, no rebuild. No provider call, reservation, push or release.
 Approved cap and settled total unchanged.
+
+**2026-09-16 — D-280 original-human-test witness: $0.00 model/API spend.**
+Six guarded executions establish one development natural-pair witness; one other
+pair remains runtime-unqualified. No provider call, reservation, push or release.
+Approved cap and settled total unchanged.
