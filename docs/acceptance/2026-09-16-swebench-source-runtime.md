@@ -85,3 +85,28 @@ new capability and two existing-contract defects. Natural forward direction,
 revision-specific paired artifacts, controls and product integration
 remain separate prerequisites. No precision, recall, zero-FPR or release claim
 follows from this report.
+
+## Visible supplement — authorized fixed-HEAD gate, 2026-09-16
+
+The original statement “A fixed-HEAD complete gate remains outstanding” above
+describes the earlier failed run and is preserved. The owner subsequently
+authorized temporary directories. A new, empty `/private/tmp/attest-gate-*`
+directory held both TMPDIR and its pytest fixture subdirectories; no product
+code, test assertion, guard or default changed.
+
+The new run started and finished at
+`0b6d3b180897126b8bbb7ed65f1d4831102ac697`: **2,563 passed, zero failed,
+zero errors, zero skipped**, in 2,323.69 seconds. Certification/execution
+coverage is **93.42%**. All 18 earlier failing nodes also passed a preceding
+focused check. All 20 M01 records bind that same commit. Ruff, mypy and diff
+checks passed. Environment: CPython 3.12.2, macOS 26.5.2 arm64, Docker 27.5.1;
+exact commands, versions, dependency listing, lock digest, logs and raw/public
+artifact digests are in the
+[new gate manifest](../../benchmarks/studies/swebench-independent-v1/fixed-head-gate-evidence/manifest.json).
+The earlier failed and interrupted records remain unchanged.
+
+This passes the local single-version code gate, not the final two-version
+release integration gate or the paid study. Peripheral coverage is informational:
+review 89%, CLI 92%, GitHub 93%, benchmark 89%, Core 99% (rounded coverage output).
+Runtime qualification remains 3/6, qualified natural-forward defects and controls
+remain zero, and API spend remains $0 for this phase.

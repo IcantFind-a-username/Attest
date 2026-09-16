@@ -616,3 +616,10 @@ Three retained six-case runtime attempts, original-input freeze, 18 paired human
 test jobs, independent driver/semantic reviews and local code-gate diagnostics.
 No qualified paid population or provider call, no reservation, push or remote write.
 The complete gate remains unpassed; approved cumulative cap and paid total unchanged.
+
+**2026-09-16 — D-272/D-273 fixed-HEAD gate supplement: $0.00 API spend.**
+After owner authorization of system temporary directories, the full local gate
+passed at `0b6d3b1` (2,563 tests). The preceding failed-run entry remains historical.
+No paid call/reservation, push, remote write, product-default change or cap increase.
+The independent study still has zero qualified defects/controls; paid dispatch
+remains blocked by population eligibility, not temporary-directory permission.

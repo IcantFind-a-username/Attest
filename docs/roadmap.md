@@ -38,6 +38,16 @@ Quantitative gates are in [`acceptance/evolution-gates.md`](acceptance/evolution
 
 ## 2. Honest baseline
 
+- **2026-09-16 — D-272/D-273 gate supplement:** the owner authorized system
+  temporary directories. At fixed `0b6d3b1`, all 2,563 tests passed with zero
+  failures/errors/skips, 93.42% certification/execution coverage; Ruff/mypy/diff
+  checks passed and all 20 M01 measurements bind one SHA. This resolves the
+  temporary-directory and fixed-HEAD gate items in the older entry below, not
+  the independent population shortfall: qualified defects/controls remain 0/0,
+  paid evaluation has not started. See the
+  [gate supplement](acceptance/2026-09-16-swebench-source-runtime.md#visible-supplement--authorized-fixed-head-gate-2026-09-16)
+  and [pending owner decision](implementation/2026-09-16-independent-evaluation-decision.md).
+
 - **2026-09-16 — D-272/D-273 prerequisite limits:** source-mounted imports pass
   for three of six frozen cases; three remain blocked by pytest arguments.
   Original-test diagnostics discriminate three repair overlays, but semantic

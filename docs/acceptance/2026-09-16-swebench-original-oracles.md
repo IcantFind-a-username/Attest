@@ -74,3 +74,16 @@ No qualified natural-forward defect/control population or paid product result is
 claimed. The study minimum, independent controls, fixed-code gate and free paid-
 workflow artifact smoke remain prerequisites. This report establishes test
 discrimination and semantic triage only; recall and precision remain unmeasured.
+
+## Visible supplement — code gate resolved, population still ineligible
+
+The earlier prerequisite sentence includes “fixed-code gate”; that part is now
+resolved by the [authorized fixed-HEAD gate](2026-09-16-swebench-source-runtime.md#visible-supplement--authorized-fixed-head-gate-2026-09-16):
+2,563 tests passed at `0b6d3b1`, with no failures/errors/skips and 93.42%
+certification/execution coverage. The original sentence and failed-run evidence
+remain intact. This does not change any sample qualification or semantic label.
+There are still zero qualified natural-forward defects and zero controls; the
+paid minimum is unmet and no paid dispatch occurred. A separate
+[owner decision package](../implementation/2026-09-16-independent-evaluation-decision.md)
+proposes a bounded next study; it is not an amendment to this frozen population
+and has not been executed.

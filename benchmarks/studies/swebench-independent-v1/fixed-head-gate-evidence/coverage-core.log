@@ -1,0 +1,13 @@
+Name                             Stmts   Miss  Cover   Missing
+--------------------------------------------------------------
+src/attest/core/__init__.py          8      0   100%
+src/attest/core/allocation.py       28      0   100%
+src/attest/core/betting.py          25      0   100%
+src/attest/core/demo_compat.py      82      0   100%
+src/attest/core/engine.py          131      1    99%   63
+src/attest/core/exploration.py      13      0   100%
+src/attest/core/monitor.py          46      0   100%
+src/attest/core/stream.py           18      0   100%
+src/attest/core/tables.py           78      0   100%
+--------------------------------------------------------------
+TOTAL                              429      1    99%
