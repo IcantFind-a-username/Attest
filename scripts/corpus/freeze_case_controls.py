@@ -17,12 +17,13 @@ WORK = ROOT / ".attest/corpora/case-holdout-v1"
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--study", choices=("case-heldout", "metadata-exposed"),
+    parser.add_argument("--study", choices=("case-heldout", "metadata-exposed", "remainder"),
                         default="case-heldout")
     args = parser.parse_args()
-    name = "case-holdout-v1" if args.study == "case-heldout" else "metadata-exposed-v1"
+    name = {"case-heldout": "case-holdout-v1", "metadata-exposed": "metadata-exposed-v1",
+            "remainder": "remainder-v1"}[args.study]
     study = ROOT / "benchmarks/studies" / name
-    work = ROOT / ".attest/corpora" / name
+    work = ROOT / ".attest/corpora" / ("metadata-exposed-v1" if args.study == "remainder" else name)
     destination = study / "control-candidates.json"
     if destination.exists():
         raise ValueError("control candidates already frozen")
