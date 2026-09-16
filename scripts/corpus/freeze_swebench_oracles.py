@@ -26,14 +26,15 @@ COLUMNS = [
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--study", choices=("runtime-qualified", "case-heldout", "metadata-exposed"),
+        "--study", choices=("runtime-qualified", "case-heldout", "metadata-exposed", "remainder"),
         default="runtime-qualified",
     )
     args = parser.parse_args()
     work = WORK
     protocol = STUDY / "oracle-inputs.md"
-    if args.study in {"case-heldout", "metadata-exposed"}:
-        name = "case-holdout-v1" if args.study == "case-heldout" else "metadata-exposed-v1"
+    if args.study in {"case-heldout", "metadata-exposed", "remainder"}:
+        name = {"case-heldout": "case-holdout-v1", "metadata-exposed": "metadata-exposed-v1",
+                "remainder": "remainder-v1"}[args.study]
         case_study = ROOT / "benchmarks/studies" / name
         freeze_bytes = (case_study / "freeze.json").read_bytes()
         validation_bytes = (case_study / "validation.json").read_bytes()
