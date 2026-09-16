@@ -1,5 +1,10 @@
 # attest
 
+> **Paused on 2026-09-17**, for the owner's capacity rather than a verdict on the work. What was
+> proven, what was not, and the three parts worth lifting out are in
+> [`docs/2026-09-17-pause-and-handoff.md`](docs/2026-09-17-pause-and-handoff.md). No further
+> work is planned; nothing below is withdrawn.
+
 **A pull-request reviewer that only says things it can prove, and abstains out loud when it
 cannot.**
 

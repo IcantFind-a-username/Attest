@@ -11,6 +11,16 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ## Unreleased
 
+### Status
+
+- **Paused on 2026-09-17 (D-283).** The reviewer reaches a verdict on fewer than half its own
+  claims on the favourable corpus and confirmed none of 55 claims on real merged pull requests;
+  the owner's capacity goes to other work. Nothing is withdrawn and no measurement is revised.
+  The execution isolation, the certification kernel with its offline receipt, and the
+  non-perturbing observation are the parts worth reusing
+  ([handoff](docs/2026-09-17-pause-and-handoff.md)).
+
+
 ### Fixes
 
 - **Controlled probes ignore project pytest addopts (D-278).** Prevent disabled-plugin
