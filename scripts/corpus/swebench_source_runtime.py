@@ -1,7 +1,8 @@
-"""Free source-mounted qualification using the six recorded compatible wheels."""
+"""Free source-mounted diagnostics using revision-bound compatible wheels."""
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import shutil
@@ -17,6 +18,7 @@ from heldout_v2 import stub_packages
 from packaging.markers import default_environment
 from packaging.requirements import Requirement
 from runtime_contract_shadow import archive
+from swebench_compatible_build import natural_cases
 from wheel_overlay import apply_wheel
 
 from attest.benchmark.artifacts import sha256_bytes, write_canonical_json
@@ -162,9 +164,11 @@ def check_runtime(
     }
 
 
-def check_fixture(build_record: dict, runtime: str, env: dict[str, str], state: dict) -> dict:
+def check_fixture(
+    build_record: dict, runtime: str, env: dict[str, str], state: dict, *, work: Path = WORK,
+) -> dict:
     state["stage"] = "fixture_build"
-    fixture = WORK / "fixture"
+    fixture = work / "fixture"
     fixture.mkdir()
     tree = fixture / "tree"
     shutil.copytree(STUDY / "native-fixture", tree)
@@ -195,26 +199,42 @@ def check_fixture(build_record: dict, runtime: str, env: dict[str, str], state: 
 
 
 def main() -> None:
-    if WORK.exists():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--study", choices=("swebench", "natural-pairs"), default="swebench")
+    natural = parser.parse_args().study == "natural-pairs"
+    study = ROOT / "benchmarks/studies/metadata-exposed-v1/compatibility" if natural else STUDY
+    builds = ROOT / ".attest/corpora/natural-pair-compatible-build" if natural else BUILDS
+    previous = ROOT / ".attest/corpora/metadata-exposed-runtime" if natural else PREVIOUS
+    repo_base = ROOT / ".attest/corpora/metadata-exposed-v1" if natural else PREVIOUS
+    work = ROOT / ".attest/corpora/natural-pair-source-runtime" if natural else WORK
+    if work.exists():
         raise ValueError("fresh output directory required")
-    WORK.mkdir()
-    os.environ["TMPDIR"] = str(WORK)
-    env = {**os.environ, "DOCKER_CONFIG": str(PREVIOUS / "docker-config")}
+    work.mkdir()
+    os.environ["TMPDIR"] = str(work)
+    env = {**os.environ, "DOCKER_CONFIG": str(previous / "docker-config")}
     env["DOCKER_HOST"] = subprocess.check_output(
         ["docker", "context", "inspect", "--format", "{{.Endpoints.docker.Host}}"],
         text=True, timeout=30,
     ).strip()
-    build_record = json.loads((BUILDS / "result.json").read_text())
-    if (BUILDS / "result.json").read_bytes() != (
-        STUDY / "compatible-build-evidence/result.json"
-    ).read_bytes():
+    build_bytes = (builds / "result.json").read_bytes()
+    build_record = json.loads(build_bytes)
+    evidence_path = (
+        "build-evidence/result.json" if natural else "compatible-build-evidence/result.json"
+    )
+    if build_bytes != (study / evidence_path).read_bytes():
         raise ValueError("build record differs from committed evidence")
-    frozen = json.loads((STUDY / "frozen-candidates.json").read_text())
-    cases = [c for r in frozen["repositories"] for c in r["selected"]]
+    frozen_bytes = (study / ("cases.json" if natural else "frozen-candidates.json")).read_bytes()
+    frozen = json.loads(frozen_bytes)
+    cases = natural_cases(frozen, study.parent) if natural else [
+        c for r in frozen["repositories"] for c in r["selected"]
+    ]
     if (
-        len(cases) != 6 or len(build_record["rows"]) != 6
-        or {r["case"] for r in build_record["rows"]} != {c["instance_id"] for c in cases}
-        or any(r["status"] != "built" for r in build_record["rows"])
+        len(cases) != (4 if natural else 6) or build_record["status"] != "complete"
+        or [(r["case"], r["revision"]) for r in build_record["rows"]]
+        != [(c["instance_id"], c["base_commit"]) for c in cases]
+        or any(r["status"] not in ({"built", "build_failed"} if natural else {"built"})
+               for r in build_record["rows"])
+        or (natural and build_record["population_sha256"] != sha256_bytes(frozen_bytes))
     ):
         raise ValueError("build population is incomplete")
     subprocess.run(
@@ -230,36 +250,54 @@ def main() -> None:
         ], "model_api_spend_usd": 0,
         "driver_sha256": sha256_bytes(Path(__file__).read_bytes()),
         "overlay_sha256": sha256_bytes((ROOT / "scripts/corpus/wheel_overlay.py").read_bytes()),
-        "protocol_sha256": sha256_bytes((STUDY / "source-runtime.md").read_bytes()),
-        "build_record_sha256": sha256_bytes((BUILDS / "result.json").read_bytes()),
+        "archive_helper_sha256": sha256_bytes(
+            (ROOT / "scripts/corpus/runtime_contract_shadow.py").read_bytes(),
+        ),
+        "population_validator_sha256": sha256_bytes(
+            (ROOT / "scripts/corpus/swebench_compatible_build.py").read_bytes(),
+        ),
+        "protocol_sha256": sha256_bytes((study / "source-runtime.md").read_bytes()),
+        "population_sha256": sha256_bytes(frozen_bytes),
+        "build_record_sha256": sha256_bytes(build_bytes),
         "code_sha": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
         "runtime_reference": runtime, "qualified_defects": 0, "qualified_controls": 0,
     }
-    write_canonical_json(WORK / "result.json", record)
+    write_canonical_json(work / "result.json", record)
     record["fixture"] = {"status": "started"}
     try:
-        record["fixture"].update(check_fixture(build_record, runtime, env, record["fixture"]))
+        record["fixture"].update(check_fixture(
+            build_record, runtime, env, record["fixture"], work=work,
+        ))
         record["fixture"]["status"] = "checked"
         if not record["fixture"]["runtime_ready"]:
             raise ValueError("generic fixture runtime refused; no corpus execution")
     except (ValueError, OSError, subprocess.SubprocessError, KeyError, TypeError) as exc:
         record["fixture"].update(status="refused", reason=str(exc))
         record["status"] = "fixture_failed"
-        write_canonical_json(WORK / "result.json", record)
+        write_canonical_json(work / "result.json", record)
         return
     for case, row in zip(cases, record["rows"], strict=True):
+        prior = next(r for r in build_record["rows"] if r["case"] == case["instance_id"])
+        if prior["status"] != "built":
+            row.update(status="build_unqualified", stage="build", build_status=prior["status"])
+            write_canonical_json(work / "result.json", record)
+            continue
         row["status"] = "started"
-        write_canonical_json(WORK / "result.json", record)
-        directory = WORK / case["instance_id"]
+        write_canonical_json(work / "result.json", record)
+        directory = work / case["instance_id"]
         directory.mkdir()
         try:
-            prior = next(r for r in build_record["rows"] if r["case"] == case["instance_id"])
-            wheels = list((BUILDS / case["instance_id"] / "wheels").glob("*.whl"))
+            wheels = list((builds / case["instance_id"] / "wheels").glob("*.whl"))
             if len(wheels) != 1:
                 raise ValueError("wheel count")
             wheel = wheels[0]
             tree = directory / "tree"
-            repo = PREVIOUS / case["repo"].replace("/", "__") / "repo"
+            repo = repo_base / case["repo"].replace("/", "__") / "repo"
+            listing = subprocess.check_output(
+                ["git", "-C", str(repo), "ls-tree", "-r", case["base_commit"]], timeout=30,
+            )
+            if any(line.startswith(b"120000 ") for line in listing.splitlines()):
+                raise ValueError("symlink export refused before extraction")
             archive(repo, case["base_commit"], tree, timeout=60)
             row.update(check_runtime(
                 directory, tree, wheel, case["base_commit"],
@@ -271,10 +309,10 @@ def main() -> None:
             ValueError, OSError, subprocess.SubprocessError, KeyError, StopIteration, TypeError,
         ) as exc:
             row.update(status="refused", reason=str(exc), runtime_ready=False)
-        write_canonical_json(WORK / "result.json", record)
+        write_canonical_json(work / "result.json", record)
         print(row["case"], row["status"], row.get("runtime_ready"), flush=True)
     record["status"] = "complete"
-    write_canonical_json(WORK / "result.json", record)
+    write_canonical_json(work / "result.json", record)
 
 
 if __name__ == "__main__":
