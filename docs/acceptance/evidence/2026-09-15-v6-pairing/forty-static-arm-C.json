@@ -1,0 +1,1745 @@
+[
+  {
+    "unit_id": "attrs-boundary-09--forward",
+    "stratum": "boundary",
+    "site": "src/attr/_compat.py:13",
+    "recorded": {
+      "class": "no receipt",
+      "reason": "3 probes tried and none produced a differential: 3 recorded nothing usable on the merge base -- probe did not execute src/attr/_compat.py on base, so it recorded the behaviour of something other than "
+    },
+    "pairing": "not paired: no frozen probe with a differential (0 probe(s) recorded, none with a base observation and a differing head observation)"
+  },
+  {
+    "unit_id": "click-boundary-07--forward",
+    "stratum": "boundary",
+    "site": "src/click/_termui_impl.py:183",
+    "recorded": {
+      "class": "value class",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen"
+    },
+    "probe": "progress.format_eta()",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'01:01:01'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "ProgressBar",
+          "format_eta"
+        ]
+      },
+      "attest.intent.v6": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'01:01:01'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "ProgressBar",
+          "format_eta"
+        ],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: drawer",
+    "v51_now_vs_recorded": "same"
+  },
+  {
+    "unit_id": "itsdangerous-boundary-07--forward",
+    "stratum": "boundary",
+    "site": "src/itsdangerous/timed.py:141",
+    "recorded": {
+      "class": "certified",
+      "reason": "head FAIL 3/3, base PASS 3/3"
+    },
+    "probe": "fixed_signer.unsign(signed, max_age=10)",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [],
+        "specified": [],
+        "anchored_symbols": []
+      },
+      "attest.intent.v6": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [],
+        "specified": [],
+        "anchored_symbols": [],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: publishes",
+    "v51_now_vs_recorded": "same"
+  },
+  {
+    "unit_id": "jinja-boundary-09--forward",
+    "stratum": "boundary",
+    "site": "src/jinja2/debug.py:162",
+    "recorded": {
+      "class": "certified",
+      "reason": "head FAIL 3/3, base PASS 3/3"
+    },
+    "probe": "get_template_locals(real_locals)",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [
+          "13"
+        ],
+        "specified": [
+          [
+            "13",
+            "tests/test_debug.py"
+          ]
+        ],
+        "anchored_symbols": [
+          "get_template_locals"
+        ]
+      },
+      "attest.intent.v6": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [
+          "13"
+        ],
+        "specified": [
+          [
+            "13",
+            "tests/test_debug.py"
+          ]
+        ],
+        "anchored_symbols": [
+          "get_template_locals"
+        ],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: publishes",
+    "v51_now_vs_recorded": "same"
+  },
+  {
+    "unit_id": "more-itertools-boundary-08--forward",
+    "stratum": "boundary",
+    "site": "more_itertools/more.py:453",
+    "recorded": {
+      "class": "no receipt",
+      "reason": "intent: value change confirmed, no symbol to specify: this change touches no function or class of the anchored file, so no test, docstring or document can specify the value for it (返回值变化已证实，无可关联符号)"
+    },
+    "probe": "p[2:5:0]",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [
+          "'ValueError'"
+        ],
+        "specified": [
+          [
+            "'ValueError'",
+            "more_itertools/more.py"
+          ]
+        ],
+        "anchored_symbols": [
+          "_get_slice",
+          "peekable"
+        ]
+      },
+      "attest.intent.v6": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [
+          "'ValueError'"
+        ],
+        "specified": [
+          [
+            "'ValueError'",
+            "more_itertools/more.py"
+          ]
+        ],
+        "anchored_symbols": [
+          "_get_slice",
+          "peekable"
+        ],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: publishes",
+    "v51_now_vs_recorded": "publishes now (D-249)"
+  },
+  {
+    "unit_id": "packaging-boundary-08--forward",
+    "stratum": "boundary",
+    "site": "src/packaging/_musllinux.py:28",
+    "recorded": {
+      "class": "value class",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen"
+    },
+    "probe": "_parse_musl_version('musl libc (x86_64)\\nVersion 1.2.3\\n')",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'_MuslVersion(major=1, minor=2)'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "_parse_musl_version"
+        ]
+      },
+      "attest.intent.v6": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'_MuslVersion(major=1, minor=2)'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "_parse_musl_version"
+        ],
+        "contracts": [
+          {
+            "kind": "parametrize_row",
+            "symbol": "_parse_musl_version",
+            "input": "<unbound>",
+            "expected": "version",
+            "derived": "_MuslVersion(major=1, minor=2)",
+            "pinned": "'_MuslVersion(major=1, minor=2)'",
+            "source": "tests/test_musllinux.py:57",
+            "call_path": "_parse_musl_version <- tests/test_musllinux.py::test_parse_musl_version",
+            "input_bound": false,
+            "evaluated": true,
+            "path_bound": true,
+            "admitted": false,
+            "reason": "the source's input (<unbound>) is not the probe's ('musl libc (x86_64)\\nVersion 1.2.3\\n')"
+          },
+          {
+            "kind": "parametrize_row",
+            "symbol": "_parse_musl_version",
+            "input": "<unbound>",
+            "expected": "version",
+            "derived": "_MuslVersion(major=1, minor=2)",
+            "pinned": "'_MuslVersion(major=1, minor=2)'",
+            "source": "tests/test_musllinux.py:57",
+            "call_path": "_parse_musl_version <- tests/test_musllinux.py::test_parse_musl_version",
+            "input_bound": false,
+            "evaluated": true,
+            "path_bound": true,
+            "admitted": false,
+            "reason": "the source's input (<unbound>) is not the probe's ('musl libc (x86_64)\\nVersion 1.2.3\\n')"
+          },
+          {
+            "kind": "parametrize_row",
+            "symbol": "_parse_musl_version",
+            "input": "<unbound>",
+            "expected": "version",
+            "derived": "_MuslVersion(major=1, minor=1)",
+            "pinned": "",
+            "source": "tests/test_musllinux.py:57",
+            "call_path": "_parse_musl_version <- tests/test_musllinux.py::test_parse_musl_version",
+            "input_bound": false,
+            "evaluated": true,
+            "path_bound": true,
+            "admitted": false,
+            "reason": "the source's input (<unbound>) is not the probe's ('musl libc (x86_64)\\nVersion 1.2.3\\n')"
+          },
+          {
+            "kind": "parametrize_row",
+            "symbol": "_parse_musl_version",
+            "input": "<unbound>",
+            "expected": "version",
+            "derived": "None",
+            "pinned": "",
+            "source": "tests/test_musllinux.py:57",
+            "call_path": "_parse_musl_version <- tests/test_musllinux.py::test_parse_musl_version",
+            "input_bound": false,
+            "evaluated": true,
+            "path_bound": true,
+            "admitted": false,
+            "reason": "the source's input (<unbound>) is not the probe's ('musl libc (x86_64)\\nVersion 1.2.3\\n')"
+          },
+          {
+            "kind": "parametrize_row",
+            "symbol": "_parse_musl_version",
+            "input": "<unbound>",
+            "expected": "version",
+            "derived": "None",
+            "pinned": "",
+            "source": "tests/test_musllinux.py:57",
+            "call_path": "_parse_musl_version <- tests/test_musllinux.py::test_parse_musl_version",
+            "input_bound": false,
+            "evaluated": true,
+            "path_bound": true,
+            "admitted": false,
+            "reason": "the source's input (<unbound>) is not the probe's ('musl libc (x86_64)\\nVersion 1.2.3\\n')"
+          }
+        ]
+      }
+    },
+    "pairing": "unchanged: drawer",
+    "v51_now_vs_recorded": "same"
+  },
+  {
+    "unit_id": "python-dotenv-boundary-06--forward",
+    "stratum": "boundary",
+    "site": "src/dotenv/parser.py:164",
+    "recorded": {
+      "class": "value class",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen"
+    },
+    "probe": "next(parse_stream(stream)).value",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'#novalue'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "parse_binding"
+        ]
+      },
+      "attest.intent.v6": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'#novalue'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "parse_binding"
+        ],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: drawer",
+    "v51_now_vs_recorded": "same"
+  },
+  {
+    "unit_id": "urllib3-boundary-07--forward",
+    "stratum": "boundary",
+    "site": "src/urllib3/_collections.py:114",
+    "recorded": {
+      "class": "value class",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen"
+    },
+    "probe": "sorted(c.keys())",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "0",
+          "1",
+          "2",
+          "3",
+          "4"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "RecentlyUsedContainer",
+          "__setitem__"
+        ]
+      },
+      "attest.intent.v6": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "0",
+          "1",
+          "2",
+          "3",
+          "4"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "RecentlyUsedContainer",
+          "__setitem__"
+        ],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: drawer",
+    "v51_now_vs_recorded": "same"
+  },
+  {
+    "unit_id": "attrs-guard_raise-03--forward",
+    "stratum": "guard_raise",
+    "site": "src/attr/_make.py:423",
+    "recorded": {
+      "class": "value class",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen"
+    },
+    "probe": "_transform_attrs(C, None, True, ClassProps.KeywordOnly.NO, True, None)",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'UnannotatedAttributeError'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "_transform_attrs"
+        ]
+      },
+      "attest.intent.v6": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'UnannotatedAttributeError'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "_transform_attrs"
+        ],
+        "contracts": [
+          {
+            "kind": "bound_assertion",
+            "symbol": "_transform_attrs",
+            "input": "<unbound>",
+            "expected": "_Attributes((), [], {})",
+            "derived": "_Attributes(attrs=(), base_attrs=[], base_attrs_map={})",
+            "pinned": "",
+            "source": "tests/test_make.py:252",
+            "call_path": "_transform_attrs <- tests/test_make.py::test_empty",
+            "input_bound": false,
+            "evaluated": true,
+            "path_bound": true,
+            "admitted": false,
+            "reason": "the source's input (<unbound>) is not the probe's (<unbound>)"
+          }
+        ]
+      }
+    },
+    "pairing": "unchanged: drawer",
+    "v51_now_vs_recorded": "same"
+  },
+  {
+    "unit_id": "click-boundary-10--forward",
+    "stratum": "boundary",
+    "site": "src/click/_termui_impl.py:339",
+    "recorded": {
+      "class": "value class",
+      "reason": "intent: value change confirmed, intent unknown: the failing assertion pins only a generic constant, which almost any tree asserts somewhere and which therefore specifies nothing about the code under t"
+    },
+    "probe": "(pb.update(1), pb.pos)[1]",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "value change confirmed, intent unknown: the failing assertion pins only a generic constant, which almost any tree asserts somewhere and which therefore specifies nothing about the code under test (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "1"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "ProgressBar",
+          "update"
+        ]
+      },
+      "attest.intent.v6": {
+        "verdict": "value change confirmed, intent unknown: the failing assertion pins only a generic constant, which almost any tree asserts somewhere and which therefore specifies nothing about the code under test (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "1"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "ProgressBar",
+          "update"
+        ],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: drawer",
+    "v51_now_vs_recorded": "same"
+  },
+  {
+    "unit_id": "itsdangerous-guard_raise-01--forward",
+    "stratum": "guard_raise",
+    "site": "src/itsdangerous/signer.py:146",
+    "recorded": {
+      "class": "value class",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen"
+    },
+    "probe": "Signer('secret-key', sep='a')",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'ValueError'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "Signer",
+          "__init__"
+        ]
+      },
+      "attest.intent.v6": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'ValueError'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "Signer",
+          "__init__"
+        ],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: drawer",
+    "v51_now_vs_recorded": "same"
+  },
+  {
+    "unit_id": "jinja-boundary-12--forward",
+    "stratum": "boundary",
+    "site": "src/jinja2/environment.py:1637",
+    "recorded": {
+      "class": "value class",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen"
+    },
+    "probe": "len(next(stream))",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "3"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "TemplateStream",
+          "_buffered_generator"
+        ]
+      },
+      "attest.intent.v6": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "3"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "TemplateStream",
+          "_buffered_generator"
+        ],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: drawer",
+    "v51_now_vs_recorded": "same"
+  },
+  {
+    "unit_id": "more-itertools-boundary-10--forward",
+    "stratum": "boundary",
+    "site": "more_itertools/more.py:464",
+    "recorded": {
+      "class": "no receipt",
+      "reason": "intent: value change confirmed, no symbol to specify: this change touches no function or class of the anchored file, so no test, docstring or document can specify the value for it (返回值变化已证实，无可关联符号)"
+    },
+    "probe": "(p[0:5], len(p._cache))",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "0",
+          "1",
+          "2",
+          "3",
+          "4",
+          "6"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "_get_slice",
+          "peekable"
+        ]
+      },
+      "attest.intent.v6": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "0",
+          "1",
+          "2",
+          "3",
+          "4",
+          "6"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "_get_slice",
+          "peekable"
+        ],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: drawer",
+    "v51_now_vs_recorded": "same"
+  },
+  {
+    "unit_id": "packaging-boundary-11--forward",
+    "stratum": "boundary",
+    "site": "src/packaging/_ranges.py:152",
+    "recorded": {
+      "class": "no receipt",
+      "reason": "3 probes tried and none produced a differential: 3 reached the changed lines and observed no difference"
+    },
+    "pairing": "not paired: no frozen probe with a differential (0 probe(s) recorded, none with a base observation and a differing head observation)"
+  },
+  {
+    "unit_id": "python-dotenv-boundary-08--forward",
+    "stratum": "boundary",
+    "site": "src/dotenv/variables.py:85",
+    "recorded": {
+      "class": "value class",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen"
+    },
+    "probe": "list(parse_variables('${FOO}'))",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'[Variable(name=FOO, default=None)]'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "parse_variables"
+        ]
+      },
+      "attest.intent.v6": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'[Variable(name=FOO, default=None)]'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "parse_variables"
+        ],
+        "contracts": [
+          {
+            "kind": "parametrize_row",
+            "symbol": "parse_variables",
+            "input": "''",
+            "expected": "expected",
+            "derived": "[]",
+            "pinned": "",
+            "source": "tests/test_variables.py:35",
+            "call_path": "parse_variables <- tests/test_variables.py::test_parse_variables",
+            "input_bound": false,
+            "evaluated": true,
+            "path_bound": true,
+            "admitted": false,
+            "reason": "the source's input ('') is not the probe's ('${FOO}')"
+          },
+          {
+            "kind": "parametrize_row",
+            "symbol": "parse_variables",
+            "input": "'a'",
+            "expected": "expected",
+            "derived": "",
+            "pinned": "",
+            "source": "tests/test_variables.py:35",
+            "call_path": "parse_variables <- tests/test_variables.py::test_parse_variables",
+            "input_bound": false,
+            "evaluated": false,
+            "path_bound": true,
+            "admitted": false,
+            "reason": "the source's input ('a') is not the probe's ('${FOO}')"
+          },
+          {
+            "kind": "parametrize_row",
+            "symbol": "parse_variables",
+            "input": "'${a}'",
+            "expected": "expected",
+            "derived": "",
+            "pinned": "",
+            "source": "tests/test_variables.py:35",
+            "call_path": "parse_variables <- tests/test_variables.py::test_parse_variables",
+            "input_bound": false,
+            "evaluated": false,
+            "path_bound": true,
+            "admitted": false,
+            "reason": "the source's input ('${a}') is not the probe's ('${FOO}')"
+          },
+          {
+            "kind": "parametrize_row",
+            "symbol": "parse_variables",
+            "input": "'${a:-b}'",
+            "expected": "expected",
+            "derived": "",
+            "pinned": "",
+            "source": "tests/test_variables.py:35",
+            "call_path": "parse_variables <- tests/test_variables.py::test_parse_variables",
+            "input_bound": false,
+            "evaluated": false,
+            "path_bound": true,
+            "admitted": false,
+            "reason": "the source's input ('${a:-b}') is not the probe's ('${FOO}')"
+          },
+          {
+            "kind": "parametrize_row",
+            "symbol": "parse_variables",
+            "input": "'${a}${b}'",
+            "expected": "expected",
+            "derived": "",
+            "pinned": "",
+            "source": "tests/test_variables.py:35",
+            "call_path": "parse_variables <- tests/test_variables.py::test_parse_variables",
+            "input_bound": false,
+            "evaluated": false,
+            "path_bound": true,
+            "admitted": false,
+            "reason": "the source's input ('${a}${b}') is not the probe's ('${FOO}')"
+          },
+          {
+            "kind": "parametrize_row",
+            "symbol": "parse_variables",
+            "input": "'a${b}c${d}e'",
+            "expected": "expected",
+            "derived": "",
+            "pinned": "",
+            "source": "tests/test_variables.py:35",
+            "call_path": "parse_variables <- tests/test_variables.py::test_parse_variables",
+            "input_bound": false,
+            "evaluated": false,
+            "path_bound": true,
+            "admitted": false,
+            "reason": "the source's input ('a${b}c${d}e') is not the probe's ('${FOO}')"
+          }
+        ]
+      }
+    },
+    "pairing": "unchanged: drawer",
+    "v51_now_vs_recorded": "same"
+  },
+  {
+    "unit_id": "urllib3-guard_raise-03--forward",
+    "stratum": "guard_raise",
+    "site": "src/urllib3/_request_methods.py:258",
+    "recorded": {
+      "class": "value class",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen"
+    },
+    "probe": "d.request_encode_body('POST', 'http://example.com', fields={'a':'b'}, body=b'raw')",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'TypeError'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "RequestMethods",
+          "request_encode_body"
+        ]
+      },
+      "attest.intent.v6": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'TypeError'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "RequestMethods",
+          "request_encode_body"
+        ],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: drawer",
+    "v51_now_vs_recorded": "same"
+  },
+  {
+    "unit_id": "attrs-none_guard-14--forward",
+    "stratum": "none_guard",
+    "site": "src/attr/_next_gen.py:424",
+    "recorded": {
+      "class": "certified",
+      "reason": "head FAIL 3/3, base PASS 3/3"
+    },
+    "probe": "attr.define()",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [],
+        "specified": [],
+        "anchored_symbols": []
+      },
+      "attest.intent.v6": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [],
+        "specified": [],
+        "anchored_symbols": [],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: publishes",
+    "v51_now_vs_recorded": "same"
+  },
+  {
+    "unit_id": "click-guard_raise-03--forward",
+    "stratum": "guard_raise",
+    "site": "src/click/_compat.py:400",
+    "recorded": {
+      "class": "no receipt",
+      "reason": "3 probes tried and none produced a differential: 3 reached the changed lines and observed no difference"
+    },
+    "pairing": "not paired: no frozen probe with a differential (0 probe(s) recorded, none with a base observation and a differing head observation)"
+  },
+  {
+    "unit_id": "itsdangerous-guard_raise-04--forward",
+    "stratum": "guard_raise",
+    "site": "src/itsdangerous/timed.py:134",
+    "recorded": {
+      "class": "no receipt",
+      "reason": "3 probes tried and none produced a differential: 3 reached the changed lines and observed no difference"
+    },
+    "pairing": "not paired: no frozen probe with a differential (0 probe(s) recorded, none with a base observation and a differing head observation)"
+  },
+  {
+    "unit_id": "jinja-guard_raise-01--forward",
+    "stratum": "guard_raise",
+    "site": "src/jinja2/bccache.py:84",
+    "recorded": {
+      "class": "value class",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen"
+    },
+    "probe": "bucket.write_bytecode(f)",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'TypeError'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "Bucket",
+          "write_bytecode"
+        ]
+      },
+      "attest.intent.v6": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'TypeError'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "Bucket",
+          "write_bytecode"
+        ],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: drawer",
+    "v51_now_vs_recorded": "same"
+  },
+  {
+    "unit_id": "more-itertools-guard_raise-04--forward",
+    "stratum": "guard_raise",
+    "site": "more_itertools/more.py:272",
+    "recorded": {
+      "class": "no receipt",
+      "reason": "intent: value change confirmed, no symbol to specify: this change touches no function or class of the anchored file, so no test, docstring or document can specify the value for it (返回值变化已证实，无可关联符号)"
+    },
+    "probe": "mi.first([])",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [
+          "'ValueError'"
+        ],
+        "specified": [
+          [
+            "'ValueError'",
+            "more_itertools/more.py"
+          ]
+        ],
+        "anchored_symbols": [
+          "first"
+        ]
+      },
+      "attest.intent.v6": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [
+          "'ValueError'"
+        ],
+        "specified": [
+          [
+            "'ValueError'",
+            "more_itertools/more.py"
+          ]
+        ],
+        "anchored_symbols": [
+          "first"
+        ],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: publishes",
+    "v51_now_vs_recorded": "publishes now (D-249)"
+  },
+  {
+    "unit_id": "packaging-guard_raise-01--forward",
+    "stratum": "guard_raise",
+    "site": "src/packaging/_elffile.py:53",
+    "recorded": {
+      "class": "certified",
+      "reason": "head FAIL 3/3, base PASS 3/3"
+    },
+    "probe": "ELFFile(io.BytesIO(data))",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [
+          "'ELFInvalid'"
+        ],
+        "specified": [
+          [
+            "'ELFInvalid'",
+            "tests/test_elffile.py"
+          ]
+        ],
+        "anchored_symbols": [
+          "ELFFile",
+          "__init__"
+        ]
+      },
+      "attest.intent.v6": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [
+          "'ELFInvalid'"
+        ],
+        "specified": [
+          [
+            "'ELFInvalid'",
+            "tests/test_elffile.py"
+          ]
+        ],
+        "anchored_symbols": [
+          "ELFFile",
+          "__init__"
+        ],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: publishes",
+    "v51_now_vs_recorded": "same"
+  },
+  {
+    "unit_id": "python-dotenv-guard_raise-01--forward",
+    "stratum": "guard_raise",
+    "site": "src/dotenv/main.py:211",
+    "recorded": {
+      "class": "certified",
+      "reason": "head FAIL 3/3, base PASS 3/3"
+    },
+    "probe": "dotenv.set_key(path, 'a', 'x', quote_mode='sometimes')",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [
+          "'ValueError'"
+        ],
+        "specified": [
+          [
+            "'ValueError'",
+            "CHANGELOG.md"
+          ]
+        ],
+        "anchored_symbols": [
+          "set_key"
+        ]
+      },
+      "attest.intent.v6": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [
+          "'ValueError'"
+        ],
+        "specified": [
+          [
+            "'ValueError'",
+            "CHANGELOG.md"
+          ]
+        ],
+        "anchored_symbols": [
+          "set_key"
+        ],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: publishes",
+    "v51_now_vs_recorded": "same"
+  },
+  {
+    "unit_id": "urllib3-guard_raise-04--forward",
+    "stratum": "guard_raise",
+    "site": "src/urllib3/connection.py:269",
+    "recorded": {
+      "class": "certified",
+      "reason": "head FAIL 3/3, base PASS 3/3"
+    },
+    "probe": "conn.set_tunnel('example.com', scheme='socks')",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [
+          "'ValueError'"
+        ],
+        "specified": [
+          [
+            "'ValueError'",
+            "test/with_dummyserver/test_connection.py"
+          ]
+        ],
+        "anchored_symbols": [
+          "HTTPConnection",
+          "set_tunnel"
+        ]
+      },
+      "attest.intent.v6": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [
+          "'ValueError'"
+        ],
+        "specified": [
+          [
+            "'ValueError'",
+            "test/with_dummyserver/test_connection.py"
+          ]
+        ],
+        "anchored_symbols": [
+          "HTTPConnection",
+          "set_tunnel"
+        ],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: publishes",
+    "v51_now_vs_recorded": "same"
+  },
+  {
+    "unit_id": "attrs-none_guard-15--forward",
+    "stratum": "none_guard",
+    "site": "src/attr/converters.py:37",
+    "recorded": {
+      "class": "certified",
+      "reason": "head FAIL 3/3, base PASS 3/3"
+    },
+    "probe": "conv.converter(None, None, None)",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [],
+        "specified": [],
+        "anchored_symbols": []
+      },
+      "attest.intent.v6": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [],
+        "specified": [],
+        "anchored_symbols": [],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: publishes",
+    "v51_now_vs_recorded": "same"
+  },
+  {
+    "unit_id": "click-guard_raise-05--forward",
+    "stratum": "guard_raise",
+    "site": "src/click/_compat.py:409",
+    "recorded": {
+      "class": "value class",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen"
+    },
+    "probe": "open_stream(fname, mode='r', atomic=True)",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'ValueError'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "open_stream"
+        ]
+      },
+      "attest.intent.v6": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'ValueError'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "open_stream"
+        ],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: drawer",
+    "v51_now_vs_recorded": "same"
+  },
+  {
+    "unit_id": "itsdangerous-guard_raise-05--forward",
+    "stratum": "guard_raise",
+    "site": "src/itsdangerous/timed.py:141",
+    "recorded": {
+      "class": "certified",
+      "reason": "head FAIL 3/3, base PASS 3/3"
+    },
+    "probe": "future_signer.unsign(signed, max_age=10)",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [
+          "'SignatureExpired'"
+        ],
+        "specified": [
+          [
+            "'SignatureExpired'",
+            "CHANGES.rst"
+          ]
+        ],
+        "anchored_symbols": [
+          "TimestampSigner",
+          "unsign"
+        ]
+      },
+      "attest.intent.v6": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [
+          "'SignatureExpired'"
+        ],
+        "specified": [
+          [
+            "'SignatureExpired'",
+            "CHANGES.rst"
+          ]
+        ],
+        "anchored_symbols": [
+          "TimestampSigner",
+          "unsign"
+        ],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: publishes",
+    "v51_now_vs_recorded": "same"
+  },
+  {
+    "unit_id": "jinja-none_guard-13--forward",
+    "stratum": "none_guard",
+    "site": "src/jinja2/compiler.py:119",
+    "recorded": {
+      "class": "value class",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen"
+    },
+    "probe": "env.compile('{{ 1 + 1 }}', raw=True)",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'\"from jinja2.runtime import LoopContext, Macro, Markup, Namespace, TemplateNotFound, TemplateReference, TemplateRuntimeError, Undefined, escape, identity, internalcode, markup_join, missing, str_join\\\\nname = None\\\\n\\\\ndef root(context, missing=missing, environment=environment):\\\\n    resolve = context.'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "generate"
+        ]
+      },
+      "attest.intent.v6": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'\"from jinja2.runtime import LoopContext, Macro, Markup, Namespace, TemplateNotFound, TemplateReference, TemplateRuntimeError, Undefined, escape, identity, internalcode, markup_join, missing, str_join\\\\nname = None\\\\n\\\\ndef root(context, missing=missing, environment=environment):\\\\n    resolve = context.'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "generate"
+        ],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: drawer",
+    "v51_now_vs_recorded": "same"
+  },
+  {
+    "unit_id": "more-itertools-guard_raise-05--forward",
+    "stratum": "guard_raise",
+    "site": "more_itertools/more.py:297",
+    "recorded": {
+      "class": "no receipt",
+      "reason": "intent: value change confirmed, no symbol to specify: this change touches no function or class of the anchored file, so no test, docstring or document can specify the value for it (返回值变化已证实，无可关联符号)"
+    },
+    "probe": "mi.last([])",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [
+          "'ValueError'"
+        ],
+        "specified": [
+          [
+            "'ValueError'",
+            "more_itertools/more.py"
+          ]
+        ],
+        "anchored_symbols": [
+          "last"
+        ]
+      },
+      "attest.intent.v6": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [
+          "'ValueError'"
+        ],
+        "specified": [
+          [
+            "'ValueError'",
+            "more_itertools/more.py"
+          ]
+        ],
+        "anchored_symbols": [
+          "last"
+        ],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: publishes",
+    "v51_now_vs_recorded": "publishes now (D-249)"
+  },
+  {
+    "unit_id": "packaging-guard_raise-06--forward",
+    "stratum": "guard_raise",
+    "site": "src/packaging/direct_url.py:182",
+    "recorded": {
+      "class": "value class",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen"
+    },
+    "probe": "ArchiveInfo._from_dict({'hashes': {'sha256': 123}})",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'DirectUrlValidationError'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "ArchiveInfo",
+          "_from_dict"
+        ]
+      },
+      "attest.intent.v6": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'DirectUrlValidationError'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "ArchiveInfo",
+          "_from_dict"
+        ],
+        "contracts": [
+          {
+            "kind": "caller_raises",
+            "symbol": "_from_dict",
+            "input": "{'url': 'https://example.com/archive.zip', 'archive_info': {'hash': 'md5:12345'}}",
+            "expected": "DirectUrlValidationError",
+            "derived": "'DirectUrlValidationError'",
+            "pinned": "'DirectUrlValidationError'",
+            "source": "tests/test_direct_url.py:110",
+            "call_path": "_from_dict <- DirectUrl.from_dict (src/packaging/direct_url.py:275) <- tests/test_direct_url.py::test_validate_archive_info_hash_invalid_format",
+            "input_bound": false,
+            "evaluated": true,
+            "path_bound": false,
+            "admitted": false,
+            "reason": "the probe entered through ArchiveInfo._from_dict, the source calls DirectUrl.from_dict"
+          },
+          {
+            "kind": "caller_raises",
+            "symbol": "_from_dict",
+            "input": "<unbound>",
+            "expected": "DirectUrlValidationError",
+            "derived": "'DirectUrlValidationError'",
+            "pinned": "'DirectUrlValidationError'",
+            "source": "tests/test_direct_url.py:128",
+            "call_path": "_from_dict <- DirectUrl.from_dict (src/packaging/direct_url.py:275) <- tests/test_direct_url.py::test_validate_archive_info_hash_missing_in_hashes",
+            "input_bound": false,
+            "evaluated": true,
+            "path_bound": false,
+            "admitted": false,
+            "reason": "the probe entered through ArchiveInfo._from_dict, the source calls DirectUrl.from_dict"
+          },
+          {
+            "kind": "caller_raises",
+            "symbol": "_from_dict",
+            "input": "{'url': 'https://example.com/archive.zip', 'archive_info': {'hashes': {'md5': '123456'}, 'hash': 'md5=12345'}}",
+            "expected": "DirectUrlValidationError",
+            "derived": "'DirectUrlValidationError'",
+            "pinned": "'DirectUrlValidationError'",
+            "source": "tests/test_direct_url.py:144",
+            "call_path": "_from_dict <- DirectUrl.from_dict (src/packaging/direct_url.py:275) <- tests/test_direct_url.py::test_validate_archive_info_hash_different_in_hashes",
+            "input_bound": false,
+            "evaluated": true,
+            "path_bound": false,
+            "admitted": false,
+            "reason": "the probe entered through ArchiveInfo._from_dict, the source calls DirectUrl.from_dict"
+          },
+          {
+            "kind": "caller_raises",
+            "symbol": "_from_dict",
+            "input": "{'url': 'file:///projects/myproject'}",
+            "expected": "DirectUrlValidationError",
+            "derived": "'DirectUrlValidationError'",
+            "pinned": "'DirectUrlValidationError'",
+            "source": "tests/test_direct_url.py:196",
+            "call_path": "_from_dict <- DirectUrl.from_dict (src/packaging/direct_url.py:275) <- tests/test_direct_url.py::test_one_info_field",
+            "input_bound": false,
+            "evaluated": true,
+            "path_bound": false,
+            "admitted": false,
+            "reason": "the probe entered through ArchiveInfo._from_dict, the source calls DirectUrl.from_dict"
+          },
+          {
+            "kind": "caller_raises",
+            "symbol": "_from_dict",
+            "input": "{'url': 'https://example.com/projects/myproject', 'dir_info': {}}",
+            "expected": "DirectUrlValidationError",
+            "derived": "'DirectUrlValidationError'",
+            "pinned": "'DirectUrlValidationError'",
+            "source": "tests/test_direct_url.py:210",
+            "call_path": "_from_dict <- DirectUrl.from_dict (src/packaging/direct_url.py:275) <- tests/test_direct_url.py::test_dir_info_url_scheme_file",
+            "input_bound": false,
+            "evaluated": true,
+            "path_bound": false,
+            "admitted": false,
+            "reason": "the probe entered through ArchiveInfo._from_dict, the source calls DirectUrl.from_dict"
+          },
+          {
+            "kind": "caller_raises",
+            "symbol": "_from_dict",
+            "input": "<unbound>",
+            "expected": "DirectUrlValidationError",
+            "derived": "'DirectUrlValidationError'",
+            "pinned": "'DirectUrlValidationError'",
+            "source": "tests/test_direct_url.py:248",
+            "call_path": "_from_dict <- DirectUrl.from_dict (src/packaging/direct_url.py:275) <- tests/test_direct_url.py::test_dir_info_url_requires_absolute_file_url",
+            "input_bound": false,
+            "evaluated": true,
+            "path_bound": false,
+            "admitted": false,
+            "reason": "the probe entered through ArchiveInfo._from_dict, the source calls DirectUrl.from_dict"
+          },
+          {
+            "kind": "caller_raises",
+            "symbol": "_from_dict",
+            "input": "{'dir_info': {}}",
+            "expected": "DirectUrlValidationError",
+            "derived": "'DirectUrlValidationError'",
+            "pinned": "'DirectUrlValidationError'",
+            "source": "tests/test_direct_url.py:256",
+            "call_path": "_from_dict <- DirectUrl.from_dict (src/packaging/direct_url.py:275) <- tests/test_direct_url.py::test_missing_url",
+            "input_bound": false,
+            "evaluated": true,
+            "path_bound": false,
+            "admitted": false,
+            "reason": "the probe entered through ArchiveInfo._from_dict, the source calls DirectUrl.from_dict"
+          },
+          {
+            "kind": "caller_raises",
+            "symbol": "_from_dict",
+            "input": "{'url': 'https://g.c/user/repo.git', 'vcs_info': {'vcs': 'git', 'commit_id': 12345}}",
+            "expected": "DirectUrlValidationError",
+            "derived": "'DirectUrlValidationError'",
+            "pinned": "'DirectUrlValidationError'",
+            "source": "tests/test_direct_url.py:268",
+            "call_path": "_from_dict <- DirectUrl.from_dict (src/packaging/direct_url.py:275) <- tests/test_direct_url.py::test_commit_id_type",
+            "input_bound": false,
+            "evaluated": true,
+            "path_bound": false,
+            "admitted": false,
+            "reason": "the probe entered through ArchiveInfo._from_dict, the source calls DirectUrl.from_dict"
+          },
+          {
+            "kind": "caller_raises",
+            "symbol": "_from_dict",
+            "input": "{'url': 'https://example.com/archive.zip', 'archive_info': {'hashes': {'md5': 12345}}}",
+            "expected": "DirectUrlValidationError",
+            "derived": "'DirectUrlValidationError'",
+            "pinned": "'DirectUrlValidationError'",
+            "source": "tests/test_direct_url.py:95",
+            "call_path": "_from_dict <- DirectUrl.from_dict (src/packaging/direct_url.py:275) <- tests/test_direct_url.py::test_validate_archive_info_hashes",
+            "input_bound": false,
+            "evaluated": true,
+            "path_bound": false,
+            "admitted": false,
+            "reason": "the probe entered through ArchiveInfo._from_dict, the source calls DirectUrl.from_dict"
+          }
+        ]
+      }
+    },
+    "pairing": "unchanged: drawer",
+    "v51_now_vs_recorded": "same"
+  },
+  {
+    "unit_id": "python-dotenv-guard_raise-02--forward",
+    "stratum": "guard_raise",
+    "site": "src/dotenv/main.py:323",
+    "recorded": {
+      "class": "value class",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen"
+    },
+    "probe": "list(_walk_to_root('/nonexistent/path/that/does/not/exist_xyz123'))",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'OSError'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "_walk_to_root"
+        ]
+      },
+      "attest.intent.v6": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'OSError'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "_walk_to_root"
+        ],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: drawer",
+    "v51_now_vs_recorded": "same"
+  },
+  {
+    "unit_id": "urllib3-none_guard-15--forward",
+    "stratum": "none_guard",
+    "site": "src/urllib3/_collections.py:486",
+    "recorded": {
+      "class": "certified",
+      "reason": "head FAIL 3/3, base PASS 3/3"
+    },
+    "probe": "5 | h",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [
+          "'TypeError'"
+        ],
+        "specified": [
+          [
+            "'TypeError'",
+            "test/test_collections.py"
+          ]
+        ],
+        "anchored_symbols": [
+          "HTTPHeaderDict",
+          "__ror__"
+        ]
+      },
+      "attest.intent.v6": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [
+          "'TypeError'"
+        ],
+        "specified": [
+          [
+            "'TypeError'",
+            "test/test_collections.py"
+          ]
+        ],
+        "anchored_symbols": [
+          "HTTPHeaderDict",
+          "__ror__"
+        ],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: publishes",
+    "v51_now_vs_recorded": "same"
+  },
+  {
+    "unit_id": "attrs-none_guard-17--forward",
+    "stratum": "none_guard",
+    "site": "src/attr/validators.py:206",
+    "recorded": {
+      "class": "certified",
+      "reason": "head FAIL 3/3, base PASS 3/3"
+    },
+    "probe": "v(c, attr_obj, None)",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [],
+        "specified": [],
+        "anchored_symbols": []
+      },
+      "attest.intent.v6": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [],
+        "specified": [],
+        "anchored_symbols": [],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: publishes",
+    "v51_now_vs_recorded": "same"
+  },
+  {
+    "unit_id": "click-none_guard-15--forward",
+    "stratum": "none_guard",
+    "site": "src/click/_termui_impl.py:484",
+    "recorded": {
+      "class": "no receipt",
+      "reason": "generation failed: ProbeRefused: probe setup assigns an attribute of the imported name sys (sys.stdin = FakeTTY()); replacing part of the tree before the call records the replacement, not the code (D-"
+    },
+    "pairing": "not paired: no frozen probe with a differential (0 probe(s) recorded, none with a base observation and a differing head observation)"
+  },
+  {
+    "unit_id": "itsdangerous-guard_raise-06--forward",
+    "stratum": "guard_raise",
+    "site": "src/itsdangerous/timed.py:148",
+    "recorded": {
+      "class": "certified",
+      "reason": "head FAIL 3/3, base PASS 3/3"
+    },
+    "probe": "signer.unsign(signed_value, max_age=10)",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [
+          "'SignatureExpired'"
+        ],
+        "specified": [
+          [
+            "'SignatureExpired'",
+            "CHANGES.rst"
+          ]
+        ],
+        "anchored_symbols": [
+          "TimestampSigner",
+          "unsign"
+        ]
+      },
+      "attest.intent.v6": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [
+          "'SignatureExpired'"
+        ],
+        "specified": [
+          [
+            "'SignatureExpired'",
+            "CHANGES.rst"
+          ]
+        ],
+        "anchored_symbols": [
+          "TimestampSigner",
+          "unsign"
+        ],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: publishes",
+    "v51_now_vs_recorded": "same"
+  },
+  {
+    "unit_id": "jinja-none_guard-14--forward",
+    "stratum": "none_guard",
+    "site": "src/jinja2/environment.py:100",
+    "recorded": {
+      "class": "certified",
+      "reason": "head FAIL 3/3, base PASS 3/3"
+    },
+    "probe": "env.overlay()",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [],
+        "specified": [],
+        "anchored_symbols": []
+      },
+      "attest.intent.v6": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [],
+        "specified": [],
+        "anchored_symbols": [],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: publishes",
+    "v51_now_vs_recorded": "same"
+  },
+  {
+    "unit_id": "more-itertools-none_guard-17--forward",
+    "stratum": "none_guard",
+    "site": "more_itertools/recipes.py:336",
+    "recorded": {
+      "class": "no receipt",
+      "reason": "3 probes tried and none produced a differential: 3 recorded nothing usable on the merge base -- probe observation is not stable on base: the merge base returned [1, 5, 1, 4, 8, 1], then the merge base"
+    },
+    "pairing": "not paired: no frozen probe with a differential (0 probe(s) recorded, none with a base observation and a differing head observation)"
+  },
+  {
+    "unit_id": "packaging-none_guard-13--forward",
+    "stratum": "none_guard",
+    "site": "src/packaging/_manylinux.py:178",
+    "recorded": {
+      "class": "no receipt",
+      "reason": "3 probes tried and none produced a differential: 2 did not reach the changed lines; 1 reached the changed lines and observed no difference"
+    },
+    "pairing": "not paired: no frozen probe with a differential (0 probe(s) recorded, none with a base observation and a differing head observation)"
+  },
+  {
+    "unit_id": "python-dotenv-guard_raise-04--forward",
+    "stratum": "guard_raise",
+    "site": "src/dotenv/parser.py:101",
+    "recorded": {
+      "class": "certified",
+      "reason": "head FAIL 3/3, base PASS 3/3"
+    },
+    "probe": "list(parse_stream(stream))",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [],
+        "specified": [],
+        "anchored_symbols": []
+      },
+      "attest.intent.v6": {
+        "verdict": "publishes",
+        "publishes": true,
+        "pinned": [],
+        "specified": [],
+        "anchored_symbols": [],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: publishes",
+    "v51_now_vs_recorded": "same"
+  },
+  {
+    "unit_id": "urllib3-none_guard-18--forward",
+    "stratum": "none_guard",
+    "site": "src/urllib3/poolmanager.py:418",
+    "recorded": {
+      "class": "value class",
+      "reason": "intent: value change confirmed, intent unknown: the failing assertion pins only a generic constant, which almost any tree asserts somewhere and which therefore specifies nothing about the code under t"
+    },
+    "probe": "pm._proxy_requires_url_absolute_form(u)",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "value change confirmed, intent unknown: the failing assertion pins only a generic constant, which almost any tree asserts somewhere and which therefore specifies nothing about the code under test (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "False"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "PoolManager",
+          "_proxy_requires_url_absolute_form"
+        ]
+      },
+      "attest.intent.v6": {
+        "verdict": "value change confirmed, intent unknown: the failing assertion pins only a generic constant, which almost any tree asserts somewhere and which therefore specifies nothing about the code under test (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "False"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "PoolManager",
+          "_proxy_requires_url_absolute_form"
+        ],
+        "contracts": [
+          {
+            "kind": "bound_assertion",
+            "symbol": "PoolManager._proxy_requires_url_absolute_form",
+            "input": "<unbound>",
+            "expected": "False",
+            "derived": "False",
+            "pinned": "False",
+            "source": "test/test_poolmanager.py:423",
+            "call_path": "PoolManager._proxy_requires_url_absolute_form <- test/test_poolmanager.py::test_pool_manager_no_url_absolute_form",
+            "input_bound": false,
+            "evaluated": true,
+            "path_bound": true,
+            "admitted": false,
+            "reason": "the source's input (<unbound>) is not the probe's (<unbound>)"
+          },
+          {
+            "kind": "bound_assertion",
+            "symbol": "PoolManager._proxy_requires_url_absolute_form",
+            "input": "<unbound>",
+            "expected": "False",
+            "derived": "False",
+            "pinned": "False",
+            "source": "test/test_poolmanager.py:424",
+            "call_path": "PoolManager._proxy_requires_url_absolute_form <- test/test_poolmanager.py::test_pool_manager_no_url_absolute_form",
+            "input_bound": false,
+            "evaluated": true,
+            "path_bound": true,
+            "admitted": false,
+            "reason": "the source's input (<unbound>) is not the probe's (<unbound>)"
+          }
+        ]
+      }
+    },
+    "pairing": "unchanged: drawer",
+    "v51_now_vs_recorded": "same"
+  }
+]

@@ -9,6 +9,115 @@ live under [`docs/acceptance/`](docs/acceptance/). This file is the index, not t
 
 Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
+## Unreleased
+
+### Fixes
+
+- **Parameter rows retain their own runtime bindings in shadow (D-259).** Match complete
+  node sets and per-node outcomes, including reordered parameters and refused-node reports.
+  One historical development case regains a shadow observation; all 15 prior synthetic
+  verdicts remain. **Cost in recall or trust:** no product certification or recall gain;
+  same-process records remain forgeable. Default v5.1 is unchanged.
+  [Report](docs/acceptance/2026-09-15-runtime-parameters.md).
+
+- **Runtime contract observations remain shadow-only (D-258).** Preserve original test
+  fixtures while recording typed call/assertion bindings through the existing executor.
+  Three synthetic positives are observed and twelve development controls abstain; none of
+  the three historical gains is supported by this subset. **Cost in recall or trust:** no
+  product gain or new certification authority; same-process forgery and parameter binding
+  remain open. Default v5.1 is unchanged. [Report](docs/acceptance/2026-09-15-runtime-contract-shadow.md).
+
+- **Experimental contract context (D-257).** Refuse locally unexamined fixtures, setup,
+  conftest and executable decorator arguments before treating an assertion as a contract.
+  Seven reproduced reasonable-change miscertifications are blocked, with a legal positive
+  retained. The affected six-case product replay drops from four publications to one;
+  all three prior contract gains are withdrawn. Default v5.1 is unchanged; full context
+  proof and experimental promotion remain open. [Report](docs/acceptance/2026-09-15-contract-context.md).
+
+- **Review comments have separate paragraphs and counted evidence sections (D-256).**
+  Reproduction details are collapsed, partial coverage stays visible, and a format failure
+  rebuilds the summary with the same selected identities instead of reporting silence.
+  **Cost in recall or trust:** no discovery, certification or publication-policy change;
+  presentation replay preserved all 12 comment identities. This is not a recall measurement.
+  [Report and examples](docs/acceptance/2026-09-15-readable-comments.md).
+
+- **A file of more than 200 definitions anchors its changed symbol again (D-249).**
+  `symbol_ranges` refused such a file whole, so every value receipt on it was drawered as *no
+  symbol to specify*: **4 of the 40** injected defects, all in `more_itertools/more.py` (225
+  definitions), could never certify on any probe arm. The bound now sits on the record, not on the
+  read. **What it costs in recall or in trust:** nothing in trust -- the rule and the recorded field
+  keep their meaning, no intent policy version moves and every existing receipt keeps its verdict
+  (D-121); in recall, re-judged statically on arm C's own recordings, **3 of the 4** are specified
+  by the shipped rule once anchored, and a receipt still needs a paid re-run. On the 95 verification
+  rows of the three real-PR batches the refusal never fired.
+- **A mutation case counts as certified only by a receipt on its own hunk (D-250).** The corpus
+  classifier had counted any accepted receipt in the case, wherever it sat. Recounted over every
+  recorded run of the forty: **0 receipts elsewhere**, every published count stands.
+
+### Experimental, off by default
+
+- **`attest.intent.v6.1` replaces v6 as the experimental rule: contracts are bound at the
+  assertion's program point, and the kernel recomputes admission (D-255).** The v6 reader bound a
+  test's names by their last assignment anywhere in the function, ignored a receiver changed after
+  construction, and read assertions no run reaches. In three such tests it admitted the contract
+  and the kernel accepted a receipt. The rule now binds inputs before the call, allows only inert
+  statements there, and refuses every other shape with its line. The kernel no longer trusts the
+  observer's `admitted` flag. A review configuration accepts `v5.1` and `v6.1`; v6 receipts
+  verify as before. **What it costs in recall or in trust:** in trust, it closes those receipts,
+  and offline verification still re-judges the recorded observation without rebuilding bindings
+  from source. In supply, the contract search builds fewer probes: 34 to 25 on the forty, 12 to 0
+  on the controls. Replayed on the affected cases, the three contract gains of D-254 still publish
+  and no affected case changes stage ([report](docs/acceptance/2026-09-15-contract-binding.md)).
+- **Contract probes in the product path (D-254).** With `contract_probes` on, a candidate's probe
+  search first screens probes the fixed rule reads from the base tree's own contracts about the
+  touched definitions -- no model call -- and asks the model only when none makes the revisions
+  differ; `intent_policy` names the rule a review certifies under. Both are caller-only (not
+  `.attest.toml` keys) and default to the shipped behaviour. **What it costs in recall or in trust:**
+  nothing while off. On, end to end on frozen input
+  ([report](docs/acceptance/2026-09-15-frozen-e2e.md)), with `attest.intent.v6`: 19 of the forty
+  published against 16, none lost; 0 of 3 intended-change cases and 0 of 24 control pull requests
+  (22 new by identity) with a red publication -- 7 value notes on 4 of them, identical in both arms;
+  16% more wall clock on the forty. Experimental integration evidence under ledger-reconstructed
+  candidates: the original proposals, their text dedup and failed probe attempts are not replayable.
+- **`attest.intent.v6` (D-252).** A base test's object-valued expected side, a `parametrize`
+  row, or an exception expected through a caller of the touched symbol may specify a pinned value
+  -- only when it binds the probe's concrete input, a value the observer derives mechanically and
+  the same entry or caller, and every contract found is recorded with the binding it lacks.
+  Selected by name; no product path selects it, and `INTENT_POLICY_VERSION` stays `v5.1`. Bundle
+  and ledger writers now write exactly the recorded version's fields (`IntentObservation.record()`,
+  D-121 made explicit). **What it costs in recall or in trust:** nothing yet in either -- paired
+  offline against the shipped rule on arm C's 33 frozen probes it gains 0 and loses 0, refusing
+  all 23 contracts it found for an input or an entry the probe did not use, and admits 0 of the
+  real-PR value lines ([report](docs/acceptance/2026-09-15-v6-pairing.md)).
+
+- **v6's contract must stand at head and bind its receiver (D-253).** A contract whose test the
+  same change removes no longer specifies anything, and a method call's receiver construction is
+  part of its input. **What it costs in recall or in trust:** it stops one false publication the
+  container run constructed (an intended change that drops a test naming only the public caller);
+  it adds nothing to the shipped rule. `execute_differential` and `certification_policy` accept an
+  intent policy name for harnesses; both default to `v5.1` and no product path passes one.
+
+### Measured, not adopted
+
+- **The container pairing (D-253, [report](docs/acceptance/2026-09-15-container-pairing.md)),
+  $0.00, kernel receipts.** On arm C's frozen probes the shipped rule certifies **16 of 40**, three
+  more than recorded, all D-249's, none lost. Contract probes derived from the base tests by a
+  fixed rule, under v6, certify **3 more**, each needing both the probe and v6; 0 of 12
+  intended-change counterexamples and 0 of 8 real-PR control executions certify.
+- **D-249's recovered certifications, on their own**: 3 of the 4 `more.py` cases publish under
+  the shipped rule when re-judged from arm C's frozen probes on the rebuilt trees; classes on the
+  recorded evidence, not receipts, until re-executed
+  ([report](docs/acceptance/2026-09-15-v6-pairing.md)).
+- **The evidence-supply audit over the forty (D-251,
+  [report](docs/acceptance/2026-09-15-evidence-supply.md))**, Phase 0 of
+  [the contract-evidence plan](docs/design/contract-evidence-plan.md), $0.00: of the 27 cases arm C
+  did not certify, **9** hold a specification the product cannot read today (the symbol bound,
+  object-valued expected sides, exceptions expected through a public caller or a helper), **5**
+  hold a discriminating input in their own tests that the search never tried, **13** hold nothing.
+  The libraries' own tests naming the mutated symbol catch **21 of 40** mutants, 14 of them misses;
+  the reviewer certified **5** those tests do not catch. Nothing adopted: `attest.intent.v6` and
+  the paid re-run are the owner's decisions B and C in the plan's §8.
+
 ## `v0.3.0` — 2026-09-15
 
 **The release that stopped a reviewer from writing to the repository it reviews, and made the one

@@ -1,0 +1,271 @@
+{
+  "attrs-guard_raise-03--forward": {
+    "frozen_probe": "_transform_attrs(C, None, True, ClassProps.KeywordOnly.NO, True, None)",
+    "probes": [],
+    "refused": [
+      {
+        "site": "tests/test_make.py:252",
+        "kind": "bound_assertion",
+        "row": 0,
+        "reason": "'C' is bound nowhere the rule reads"
+      }
+    ]
+  },
+  "packaging-boundary-08--forward": {
+    "frozen_probe": "_parse_musl_version('musl libc (x86_64)\\nVersion 1.2.3\\n')",
+    "probes": [
+      {
+        "site": "tests/test_musllinux.py:57",
+        "kind": "parametrize_row",
+        "row": 0,
+        "probe": {
+          "imports": "from packaging._musllinux import _parse_musl_version",
+          "setup": "MUSL_AMD64 = 'musl libc (x86_64)\\nVersion 1.2.2\\n'\noutput = MUSL_AMD64",
+          "expression": "_parse_musl_version(output)",
+          "literals_hint": ""
+        }
+      },
+      {
+        "site": "tests/test_musllinux.py:57",
+        "kind": "parametrize_row",
+        "row": 1,
+        "probe": {
+          "imports": "from packaging._musllinux import _parse_musl_version",
+          "setup": "MUSL_I386 = 'musl libc (i386)\\nVersion 1.2.1\\n'\noutput = MUSL_I386",
+          "expression": "_parse_musl_version(output)",
+          "literals_hint": ""
+        }
+      },
+      {
+        "site": "tests/test_musllinux.py:57",
+        "kind": "parametrize_row",
+        "row": 2,
+        "probe": {
+          "imports": "from packaging._musllinux import _parse_musl_version",
+          "setup": "MUSL_AARCH64 = 'musl libc (aarch64)\\nVersion 1.1.24\\n'\noutput = MUSL_AARCH64",
+          "expression": "_parse_musl_version(output)",
+          "literals_hint": ""
+        }
+      },
+      {
+        "site": "tests/test_musllinux.py:57",
+        "kind": "parametrize_row",
+        "row": 3,
+        "probe": {
+          "imports": "from packaging._musllinux import _parse_musl_version",
+          "setup": "MUSL_INVALID = 'musl libc (invalid)\\n'\noutput = MUSL_INVALID",
+          "expression": "_parse_musl_version(output)",
+          "literals_hint": ""
+        }
+      },
+      {
+        "site": "tests/test_musllinux.py:57",
+        "kind": "parametrize_row",
+        "row": 4,
+        "probe": {
+          "imports": "from packaging._musllinux import _parse_musl_version",
+          "setup": "MUSL_UNKNOWN = 'musl libc (unknown)\\nVersion unknown\\n'\noutput = MUSL_UNKNOWN",
+          "expression": "_parse_musl_version(output)",
+          "literals_hint": ""
+        }
+      }
+    ],
+    "refused": []
+  },
+  "packaging-guard_raise-06--forward": {
+    "frozen_probe": "ArchiveInfo._from_dict({'hashes': {'sha256': 123}})",
+    "probes": [
+      {
+        "site": "tests/test_direct_url.py:95",
+        "kind": "caller_raises",
+        "row": 0,
+        "probe": {
+          "imports": "from packaging.direct_url import DirectUrl",
+          "setup": "",
+          "expression": "DirectUrl.from_dict({'url': 'https://example.com/archive.zip', 'archive_info': {'hashes': {'md5': 12345}}})",
+          "literals_hint": ""
+        }
+      },
+      {
+        "site": "tests/test_direct_url.py:110",
+        "kind": "caller_raises",
+        "row": 0,
+        "probe": {
+          "imports": "from packaging.direct_url import DirectUrl",
+          "setup": "",
+          "expression": "DirectUrl.from_dict({'url': 'https://example.com/archive.zip', 'archive_info': {'hash': 'md5:12345'}})",
+          "literals_hint": ""
+        }
+      },
+      {
+        "site": "tests/test_direct_url.py:128",
+        "kind": "caller_raises",
+        "row": 0,
+        "probe": {
+          "imports": "from packaging.direct_url import DirectUrl",
+          "setup": "",
+          "expression": "DirectUrl.from_dict({'url': 'https://example.com/archive.zip', 'archive_info': {'hashes': {'sha256': 'f' * 40}, 'hash': 'md5=12345'}})",
+          "literals_hint": ""
+        }
+      },
+      {
+        "site": "tests/test_direct_url.py:144",
+        "kind": "caller_raises",
+        "row": 0,
+        "probe": {
+          "imports": "from packaging.direct_url import DirectUrl",
+          "setup": "",
+          "expression": "DirectUrl.from_dict({'url': 'https://example.com/archive.zip', 'archive_info': {'hashes': {'md5': '123456'}, 'hash': 'md5=12345'}})",
+          "literals_hint": ""
+        }
+      },
+      {
+        "site": "tests/test_direct_url.py:210",
+        "kind": "caller_raises",
+        "row": 0,
+        "probe": {
+          "imports": "from packaging.direct_url import DirectUrl",
+          "setup": "",
+          "expression": "DirectUrl.from_dict({'url': 'https://example.com/projects/myproject', 'dir_info': {}})",
+          "literals_hint": ""
+        }
+      },
+      {
+        "site": "tests/test_direct_url.py:256",
+        "kind": "caller_raises",
+        "row": 0,
+        "probe": {
+          "imports": "from packaging.direct_url import DirectUrl",
+          "setup": "",
+          "expression": "DirectUrl.from_dict({'dir_info': {}})",
+          "literals_hint": ""
+        }
+      },
+      {
+        "site": "tests/test_direct_url.py:268",
+        "kind": "caller_raises",
+        "row": 0,
+        "probe": {
+          "imports": "from packaging.direct_url import DirectUrl",
+          "setup": "",
+          "expression": "DirectUrl.from_dict({'url': 'https://g.c/user/repo.git', 'vcs_info': {'vcs': 'git', 'commit_id': 12345}})",
+          "literals_hint": ""
+        }
+      }
+    ],
+    "refused": [
+      {
+        "site": "tests/test_direct_url.py:196",
+        "kind": "caller_raises",
+        "row": 0,
+        "reason": "'direct_url_dict' is a fixture of test_one_info_field"
+      },
+      {
+        "site": "tests/test_direct_url.py:248",
+        "kind": "caller_raises",
+        "row": 0,
+        "reason": "'url' is a fixture of test_dir_info_url_requires_absolute_file_url"
+      }
+    ]
+  },
+  "python-dotenv-boundary-08--forward": {
+    "frozen_probe": "list(parse_variables('${FOO}'))",
+    "probes": [
+      {
+        "site": "tests/test_variables.py:35",
+        "kind": "parametrize_row",
+        "row": 0,
+        "probe": {
+          "imports": "from dotenv.variables import parse_variables",
+          "setup": "value = ''\nresult = parse_variables(value)",
+          "expression": "list(result)",
+          "literals_hint": ""
+        }
+      },
+      {
+        "site": "tests/test_variables.py:35",
+        "kind": "parametrize_row",
+        "row": 1,
+        "probe": {
+          "imports": "from dotenv.variables import parse_variables",
+          "setup": "value = 'a'\nresult = parse_variables(value)",
+          "expression": "list(result)",
+          "literals_hint": ""
+        }
+      },
+      {
+        "site": "tests/test_variables.py:35",
+        "kind": "parametrize_row",
+        "row": 2,
+        "probe": {
+          "imports": "from dotenv.variables import parse_variables",
+          "setup": "value = '${a}'\nresult = parse_variables(value)",
+          "expression": "list(result)",
+          "literals_hint": ""
+        }
+      },
+      {
+        "site": "tests/test_variables.py:35",
+        "kind": "parametrize_row",
+        "row": 3,
+        "probe": {
+          "imports": "from dotenv.variables import parse_variables",
+          "setup": "value = '${a:-b}'\nresult = parse_variables(value)",
+          "expression": "list(result)",
+          "literals_hint": ""
+        }
+      },
+      {
+        "site": "tests/test_variables.py:35",
+        "kind": "parametrize_row",
+        "row": 4,
+        "probe": {
+          "imports": "from dotenv.variables import parse_variables",
+          "setup": "value = '${a}${b}'\nresult = parse_variables(value)",
+          "expression": "list(result)",
+          "literals_hint": ""
+        }
+      },
+      {
+        "site": "tests/test_variables.py:35",
+        "kind": "parametrize_row",
+        "row": 5,
+        "probe": {
+          "imports": "from dotenv.variables import parse_variables",
+          "setup": "value = 'a${b}c${d}e'\nresult = parse_variables(value)",
+          "expression": "list(result)",
+          "literals_hint": ""
+        }
+      }
+    ],
+    "refused": []
+  },
+  "urllib3-none_guard-18--forward": {
+    "frozen_probe": "pm._proxy_requires_url_absolute_form(u)",
+    "probes": [
+      {
+        "site": "test/test_poolmanager.py:423",
+        "kind": "bound_assertion",
+        "row": 0,
+        "probe": {
+          "imports": "from urllib3.poolmanager import PoolManager\nfrom urllib3.util.url import Url",
+          "setup": "p = PoolManager()",
+          "expression": "p._proxy_requires_url_absolute_form(Url('http://example.com'))",
+          "literals_hint": ""
+        }
+      },
+      {
+        "site": "test/test_poolmanager.py:424",
+        "kind": "bound_assertion",
+        "row": 0,
+        "probe": {
+          "imports": "from urllib3.poolmanager import PoolManager\nfrom urllib3.util.url import Url",
+          "setup": "p = PoolManager()",
+          "expression": "p._proxy_requires_url_absolute_form(Url('https://example.com'))",
+          "literals_hint": ""
+        }
+      }
+    ],
+    "refused": []
+  }
+}

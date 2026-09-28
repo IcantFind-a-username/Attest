@@ -1,0 +1,2 @@
+{"label": "mahmoud/boltons#481", "arm": "E61", "elapsed_s": 24.1, "certified": 0, "published": 0, "verifications": 5, "probes": [["model", ""], ["model", ""], ["model", ""], ["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "mahmoud/boltons#434", "arm": "E61", "elapsed_s": 15.6, "certified": 0, "published": 0, "verifications": 3, "probes": [["model", ""]], "fidelity": true, "deferred": ""}

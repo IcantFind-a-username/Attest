@@ -543,6 +543,12 @@ Presentation receives only `CertifiedFinding` or explicit task-level operational
 It cannot inspect raw scheduler scores to decide speech. Status comments must not reveal
 uncertified claims.
 
+Presentation separates each finding's claim, reproduction facts, action and expandable
+artifact details. Different evidence classes have separate, counted summary sections.
+Formatting changes neither publication membership nor the evidence a claim names; a format
+failure retains certified identities in an adjudicated fallback or records delivery failure.
+It never reports a non-empty certified publication as a silent review.
+
 Every author-visible finding is recorded before or atomically with publication. If any
 candidate also DEFERs, the published findings still count in precision/FPR and harm
 metrics. Operational task status and finding-level accuracy are separate dimensions.

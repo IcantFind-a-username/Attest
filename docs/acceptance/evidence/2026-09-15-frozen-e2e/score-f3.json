@@ -1,0 +1,402 @@
+{
+  "run_id": "f3",
+  "controls_S": {
+    "independent_cases": 24,
+    "cases_with_a_publication": [],
+    "reviews": 24,
+    "per_case": {
+      "Delgan/loguru#1510": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "Delgan/loguru#1510"
+        ]
+      },
+      "mahmoud/boltons#481": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "mahmoud/boltons#481"
+        ]
+      },
+      "marshmallow-code/marshmallow#3034": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "marshmallow-code/marshmallow#3034"
+        ]
+      },
+      "pyparsing/pyparsing#653": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "pyparsing/pyparsing#653"
+        ]
+      },
+      "python-babel/babel#1318": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "python-babel/babel#1318"
+        ]
+      },
+      "tkem/cachetools#413": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "tkem/cachetools#413"
+        ]
+      },
+      "Delgan/loguru#1504": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "Delgan/loguru#1504"
+        ]
+      },
+      "mahmoud/boltons#434": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "mahmoud/boltons#434"
+        ]
+      },
+      "marshmallow-code/marshmallow#3004": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "marshmallow-code/marshmallow#3004"
+        ]
+      },
+      "pyparsing/pyparsing#645": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "pyparsing/pyparsing#645"
+        ]
+      },
+      "python-babel/babel#1319": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "python-babel/babel#1319"
+        ]
+      },
+      "tkem/cachetools#386": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "tkem/cachetools#386"
+        ]
+      },
+      "Delgan/loguru#1508": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "Delgan/loguru#1508"
+        ]
+      },
+      "mahmoud/boltons#475": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "mahmoud/boltons#475"
+        ]
+      },
+      "marshmallow-code/marshmallow#3024": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "marshmallow-code/marshmallow#3024"
+        ]
+      },
+      "pyparsing/pyparsing#649": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "pyparsing/pyparsing#649"
+        ]
+      },
+      "python-babel/babel#1161": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "python-babel/babel#1161"
+        ]
+      },
+      "tkem/cachetools#365": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "tkem/cachetools#365"
+        ]
+      },
+      "Delgan/loguru#1507": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "Delgan/loguru#1507"
+        ]
+      },
+      "mahmoud/boltons#467": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "mahmoud/boltons#467"
+        ]
+      },
+      "marshmallow-code/marshmallow#3016": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "marshmallow-code/marshmallow#3016"
+        ]
+      },
+      "pyparsing/pyparsing#648": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "pyparsing/pyparsing#648"
+        ]
+      },
+      "python-babel/babel#1291": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "python-babel/babel#1291"
+        ]
+      },
+      "tkem/cachetools#340": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "tkem/cachetools#340"
+        ]
+      }
+    }
+  },
+  "controls_E": {
+    "independent_cases": 24,
+    "cases_with_a_publication": [],
+    "reviews": 24,
+    "per_case": {
+      "Delgan/loguru#1510": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "Delgan/loguru#1510"
+        ]
+      },
+      "mahmoud/boltons#481": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "mahmoud/boltons#481"
+        ]
+      },
+      "marshmallow-code/marshmallow#3034": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "marshmallow-code/marshmallow#3034"
+        ]
+      },
+      "pyparsing/pyparsing#653": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "pyparsing/pyparsing#653"
+        ]
+      },
+      "python-babel/babel#1318": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "python-babel/babel#1318"
+        ]
+      },
+      "tkem/cachetools#413": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "tkem/cachetools#413"
+        ]
+      },
+      "Delgan/loguru#1504": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "Delgan/loguru#1504"
+        ]
+      },
+      "mahmoud/boltons#434": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "mahmoud/boltons#434"
+        ]
+      },
+      "marshmallow-code/marshmallow#3004": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "marshmallow-code/marshmallow#3004"
+        ]
+      },
+      "pyparsing/pyparsing#645": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "pyparsing/pyparsing#645"
+        ]
+      },
+      "python-babel/babel#1319": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "python-babel/babel#1319"
+        ]
+      },
+      "tkem/cachetools#386": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "tkem/cachetools#386"
+        ]
+      },
+      "Delgan/loguru#1508": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "Delgan/loguru#1508"
+        ]
+      },
+      "mahmoud/boltons#475": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "mahmoud/boltons#475"
+        ]
+      },
+      "marshmallow-code/marshmallow#3024": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "marshmallow-code/marshmallow#3024"
+        ]
+      },
+      "pyparsing/pyparsing#649": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "pyparsing/pyparsing#649"
+        ]
+      },
+      "python-babel/babel#1161": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "python-babel/babel#1161"
+        ]
+      },
+      "tkem/cachetools#365": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "tkem/cachetools#365"
+        ]
+      },
+      "Delgan/loguru#1507": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "Delgan/loguru#1507"
+        ]
+      },
+      "mahmoud/boltons#467": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "mahmoud/boltons#467"
+        ]
+      },
+      "marshmallow-code/marshmallow#3016": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "marshmallow-code/marshmallow#3016"
+        ]
+      },
+      "pyparsing/pyparsing#648": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "pyparsing/pyparsing#648"
+        ]
+      },
+      "python-babel/babel#1291": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "python-babel/babel#1291"
+        ]
+      },
+      "tkem/cachetools#340": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "tkem/cachetools#340"
+        ]
+      }
+    }
+  },
+  "per_case": {}
+}

@@ -25,6 +25,7 @@ from attest.github.presentation import (
     STRUCTURAL_MARKER_PREFIX,
     STRUCTURAL_PREFIX,
 )
+from attest.review import ci as ci_module
 from attest.review.acceptance import (
     BUG_COMMENT_PHASES,
     classify_comments,
@@ -40,7 +41,7 @@ from attest.review.config import ReviewConfig
 from attest.review.executor import ExecutorLimits
 from attest.review.impact import IMPACT_POLICY_VERSION
 from attest.review.ledger import Ledger
-from attest.review.output_contract import LEVEL_MARKERS
+from attest.review.output_contract import LEVEL_MARKERS, ContractVerdict, check_summary
 from attest.review.output_contract import check as contract_check
 from attest.review.proposer import ProviderResult
 from attest.review.workdir import work_root
@@ -329,10 +330,16 @@ def test_st_cap_without_accepted_receipt_never_reaches_the_author(
     assert Ledger(repo).surfaced_finding_ids() == ()
 
 
+@pytest.mark.parametrize("refuse_summary", [False, True])
 def test_planted_bug_waits_for_failing_repro_before_speaking(
-    planted_repo: tuple[Path, str, str], github_server: RecordingGitHub
+    planted_repo: tuple[Path, str, str], github_server: RecordingGitHub,
+    monkeypatch: pytest.MonkeyPatch, refuse_summary: bool,
 ) -> None:
-    from attest.review.ci import run_ci
+    if refuse_summary:
+        verdicts = iter([ContractVerdict(False, "injected format defect", "summary_preamble")])
+        monkeypatch.setattr(
+            ci_module, "check_summary", lambda body: next(verdicts, check_summary(body))
+        )
 
     repo, base_sha, head_sha = planted_repo
     provider = RecordingProvider(
@@ -348,7 +355,7 @@ def test_planted_bug_waits_for_failing_repro_before_speaking(
     )
     context = _context(base_sha, head_sha)
 
-    result = run_ci(
+    result = ci_module.run_ci(
         repo,
         context,
         GitHubClient("local-token", github_server.url),
@@ -382,6 +389,9 @@ def test_planted_bug_waits_for_failing_repro_before_speaking(
     certification = next(row for row in _ledger_rows(repo) if row["kind"] == "certification")
     assert certification["outcome"] == "accepted"
     assert str(certification["receipt_digest"]) in str(comments[0]["body"])
+    final_summary = github_server.status_bodies[-1]
+    assert "[silent]" not in final_summary
+    assert str(certification["receipt_digest"])[:12] in final_summary
 
     intermediate_event_index = next(
         index

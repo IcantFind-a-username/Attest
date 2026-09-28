@@ -1,0 +1,6 @@
+{"label": "packaging-boundary-08--forward", "arm": "E61", "elapsed_s": 17.0, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "click-boundary-10--forward", "arm": "E61", "elapsed_s": 9.9, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "python-dotenv-boundary-08--forward", "arm": "E61", "elapsed_s": 7.5, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "packaging-guard_raise-06--forward", "arm": "E61", "elapsed_s": 14.5, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "urllib3-none_guard-15--forward", "arm": "E61", "elapsed_s": 11.5, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "urllib3-none_guard-18--forward", "arm": "E61", "elapsed_s": 13.8, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}

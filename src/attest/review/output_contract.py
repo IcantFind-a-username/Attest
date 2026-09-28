@@ -35,7 +35,7 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
-CONTRACT_VERSION = "attest.output-contract.v1"
+CONTRACT_VERSION = "attest.output-contract.v1.1"
 
 # The level markers. Text rather than emoji: they survive every terminal, every
 # GitHub surface and every `grep`, and they are the same token in the ledger as
@@ -571,6 +571,10 @@ SUMMARY_HEADINGS = frozenset(
     }
 )
 SPEND_FOOTER = re.compile(r"^Spend \$\d+\.\d{4}; \d+\.\d+s\.$")
+_COVERAGE_LINE = re.compile(
+    r"^Review coverage: (?:read \d+ of \d+ units|unit coverage unavailable); "
+    r"\d+ known candidate\(s\) not verified\.$"
+)
 _STATUS_MARKER_LINE = re.compile(r"^<!--\s*attest:[a-z:]*\s*-->$", re.IGNORECASE)
 # a line inside a collapsed block is the block's business, not the contract's
 _BLOCK_OPEN = re.compile(r"<\s*details\b", re.IGNORECASE)
@@ -599,9 +603,12 @@ def check_summary(body: str) -> ContractVerdict:
             depth = max(0, depth + opens - closes)
             continue
         depth = max(0, depth - closes)
-        if _STATUS_MARKER_LINE.match(line) or line in SUMMARY_HEADINGS:
+        heading = line
+        if heading.startswith("### "):
+            heading = re.sub(r" [1-9][0-9]*$", "", heading[4:])
+        if _STATUS_MARKER_LINE.match(line) or heading in SUMMARY_HEADINGS:
             continue
-        if SPEND_FOOTER.match(line):
+        if SPEND_FOOTER.match(line) or _COVERAGE_LINE.fullmatch(line):
             continue
         candidate = line[2:].strip() if line.startswith("- ") else line
         if check(candidate):

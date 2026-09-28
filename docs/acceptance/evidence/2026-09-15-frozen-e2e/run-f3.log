@@ -1,0 +1,53 @@
+=== controls S start 12:52:52
+{"label": "Delgan/loguru#1510", "arm": "S", "elapsed_s": 1.5, "certified": 0, "published": 0, "verifications": 0, "probes": [], "fidelity": false, "deferred": ""}
+{"label": "mahmoud/boltons#481", "arm": "S", "elapsed_s": 19.6, "certified": 0, "published": 0, "verifications": 5, "probes": [["model", ""], ["model", ""], ["model", ""], ["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "marshmallow-code/marshmallow#3034", "arm": "S", "elapsed_s": 1.6, "certified": 0, "published": 0, "verifications": 0, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "pyparsing/pyparsing#653", "arm": "S", "elapsed_s": 20.1, "certified": 0, "published": 0, "verifications": 3, "probes": [["model", ""], ["model", ""], ["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "python-babel/babel#1318", "arm": "S", "elapsed_s": 11.1, "certified": 0, "published": 0, "verifications": 2, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "tkem/cachetools#413", "arm": "S", "elapsed_s": 0.5, "certified": 0, "published": 0, "verifications": 0, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "Delgan/loguru#1504", "arm": "S", "elapsed_s": 10.5, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "mahmoud/boltons#434", "arm": "S", "elapsed_s": 14.7, "certified": 0, "published": 0, "verifications": 3, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "marshmallow-code/marshmallow#3004", "arm": "S", "elapsed_s": 1.0, "certified": 0, "published": 0, "verifications": 0, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "pyparsing/pyparsing#645", "arm": "S", "elapsed_s": 17.4, "certified": 0, "published": 0, "verifications": 6, "probes": [["model", ""], ["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "python-babel/babel#1319", "arm": "S", "elapsed_s": 0.8, "certified": 0, "published": 0, "verifications": 0, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "tkem/cachetools#386", "arm": "S", "elapsed_s": 0.5, "certified": 0, "published": 0, "verifications": 0, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "Delgan/loguru#1508", "arm": "S", "elapsed_s": 9.8, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "mahmoud/boltons#475", "arm": "S", "elapsed_s": 0.6, "certified": 0, "published": 0, "verifications": 0, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "marshmallow-code/marshmallow#3024", "arm": "S", "elapsed_s": 12.8, "certified": 0, "published": 0, "verifications": 3, "probes": [["model", ""], ["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "pyparsing/pyparsing#649", "arm": "S", "elapsed_s": 0.9, "certified": 0, "published": 0, "verifications": 0, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "python-babel/babel#1161", "arm": "S", "elapsed_s": 1.3, "certified": 0, "published": 0, "verifications": 0, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "tkem/cachetools#365", "arm": "S", "elapsed_s": 0.3, "certified": 0, "published": 0, "verifications": 0, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "Delgan/loguru#1507", "arm": "S", "elapsed_s": 0.7, "certified": 0, "published": 0, "verifications": 0, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "mahmoud/boltons#467", "arm": "S", "elapsed_s": 17.0, "certified": 0, "published": 0, "verifications": 3, "probes": [["model", ""], ["model", ""], ["model", ""]], "fidelity": false, "deferred": ""}
+{"label": "marshmallow-code/marshmallow#3016", "arm": "S", "elapsed_s": 1.0, "certified": 0, "published": 0, "verifications": 0, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "pyparsing/pyparsing#648", "arm": "S", "elapsed_s": 0.8, "certified": 0, "published": 0, "verifications": 0, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "python-babel/babel#1291", "arm": "S", "elapsed_s": 3.6, "certified": 0, "published": 0, "verifications": 2, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "tkem/cachetools#340", "arm": "S", "elapsed_s": 0.3, "certified": 0, "published": 0, "verifications": 0, "probes": [], "fidelity": true, "deferred": ""}
+=== controls S end 12:55:27
+=== controls E start 12:55:27
+{"label": "Delgan/loguru#1510", "arm": "E", "elapsed_s": 1.5, "certified": 0, "published": 0, "verifications": 0, "probes": [], "fidelity": false, "deferred": ""}
+{"label": "mahmoud/boltons#481", "arm": "E", "elapsed_s": 29.0, "certified": 0, "published": 0, "verifications": 5, "probes": [["model", ""], ["model", ""], ["model", ""], ["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "marshmallow-code/marshmallow#3034", "arm": "E", "elapsed_s": 1.7, "certified": 0, "published": 0, "verifications": 0, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "pyparsing/pyparsing#653", "arm": "E", "elapsed_s": 22.5, "certified": 0, "published": 0, "verifications": 3, "probes": [["model", ""], ["model", ""], ["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "python-babel/babel#1318", "arm": "E", "elapsed_s": 12.4, "certified": 0, "published": 0, "verifications": 2, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "tkem/cachetools#413", "arm": "E", "elapsed_s": 0.5, "certified": 0, "published": 0, "verifications": 0, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "Delgan/loguru#1504", "arm": "E", "elapsed_s": 10.2, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "mahmoud/boltons#434", "arm": "E", "elapsed_s": 22.5, "certified": 0, "published": 0, "verifications": 3, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "marshmallow-code/marshmallow#3004", "arm": "E", "elapsed_s": 1.0, "certified": 0, "published": 0, "verifications": 0, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "pyparsing/pyparsing#645", "arm": "E", "elapsed_s": 30.8, "certified": 0, "published": 0, "verifications": 6, "probes": [["model", ""], ["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "python-babel/babel#1319", "arm": "E", "elapsed_s": 0.8, "certified": 0, "published": 0, "verifications": 0, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "tkem/cachetools#386", "arm": "E", "elapsed_s": 0.5, "certified": 0, "published": 0, "verifications": 0, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "Delgan/loguru#1508", "arm": "E", "elapsed_s": 10.8, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "mahmoud/boltons#475", "arm": "E", "elapsed_s": 0.6, "certified": 0, "published": 0, "verifications": 0, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "marshmallow-code/marshmallow#3024", "arm": "E", "elapsed_s": 15.2, "certified": 0, "published": 0, "verifications": 3, "probes": [["model", ""], ["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "pyparsing/pyparsing#649", "arm": "E", "elapsed_s": 0.9, "certified": 0, "published": 0, "verifications": 0, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "python-babel/babel#1161", "arm": "E", "elapsed_s": 1.3, "certified": 0, "published": 0, "verifications": 0, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "tkem/cachetools#365", "arm": "E", "elapsed_s": 0.3, "certified": 0, "published": 0, "verifications": 0, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "Delgan/loguru#1507", "arm": "E", "elapsed_s": 0.7, "certified": 0, "published": 0, "verifications": 0, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "mahmoud/boltons#467", "arm": "E", "elapsed_s": 19.0, "certified": 0, "published": 0, "verifications": 3, "probes": [["model", ""], ["model", ""], ["model", ""]], "fidelity": false, "deferred": ""}
+{"label": "marshmallow-code/marshmallow#3016", "arm": "E", "elapsed_s": 1.0, "certified": 0, "published": 0, "verifications": 0, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "pyparsing/pyparsing#648", "arm": "E", "elapsed_s": 0.8, "certified": 0, "published": 0, "verifications": 0, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "python-babel/babel#1291", "arm": "E", "elapsed_s": 6.0, "certified": 0, "published": 0, "verifications": 2, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "tkem/cachetools#340", "arm": "E", "elapsed_s": 0.3, "certified": 0, "published": 0, "verifications": 0, "probes": [], "fidelity": true, "deferred": ""}
+=== controls E end 12:58:42
+ALL-DONE

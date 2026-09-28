@@ -191,7 +191,11 @@ def run_verification_stage(
             "reason": backend_reason,
         }
     )
-    policy = certification_policy(CERTIFICATION_REPEATS, profile)
+    # D-254: the intent rule certifies under the review's configured policy -- the
+    # shipped one unless a caller named the experimental one
+    policy = certification_policy(
+        CERTIFICATION_REPEATS, profile, intent_policy_version=config.intent_policy
+    )
     certification = certification_task(
         task_id=task_id,
         repository_id=repository_id,
@@ -232,6 +236,8 @@ def run_verification_stage(
             ledger=journal,
             probe_call=probe_call,
             probe_effort=config.probe_effort,
+            intent_policy=config.intent_policy,
+            contract_probes=config.contract_probes,
         )
 
     # D-157: reproductions of *different* candidates may overlap; the three

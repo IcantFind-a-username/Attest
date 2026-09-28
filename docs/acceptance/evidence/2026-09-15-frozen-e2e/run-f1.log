@@ -1,0 +1,93 @@
+=== forty S start 12:17:27
+{"label": "attrs-boundary-09--forward", "arm": "S", "elapsed_s": 1.4, "certified": 0, "published": 0, "verifications": 1, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "click-boundary-07--forward", "arm": "S", "elapsed_s": 10.3, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "itsdangerous-boundary-07--forward", "arm": "S", "elapsed_s": 7.5, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "jinja-boundary-09--forward", "arm": "S", "elapsed_s": 9.1, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "more-itertools-boundary-08--forward", "arm": "S", "elapsed_s": 14.7, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "packaging-boundary-08--forward", "arm": "S", "elapsed_s": 11.4, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "python-dotenv-boundary-06--forward", "arm": "S", "elapsed_s": 7.8, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "urllib3-boundary-07--forward", "arm": "S", "elapsed_s": 11.2, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "attrs-guard_raise-03--forward", "arm": "S", "elapsed_s": 10.0, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "click-boundary-10--forward", "arm": "S", "elapsed_s": 8.9, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "itsdangerous-guard_raise-01--forward", "arm": "S", "elapsed_s": 6.9, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "jinja-boundary-12--forward", "arm": "S", "elapsed_s": 9.4, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "more-itertools-boundary-10--forward", "arm": "S", "elapsed_s": 15.1, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "packaging-boundary-11--forward", "arm": "S", "elapsed_s": 4.7, "certified": 0, "published": 0, "verifications": 1, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "python-dotenv-boundary-08--forward", "arm": "S", "elapsed_s": 7.3, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "urllib3-guard_raise-03--forward", "arm": "S", "elapsed_s": 10.9, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "attrs-none_guard-14--forward", "arm": "S", "elapsed_s": 8.7, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "click-guard_raise-03--forward", "arm": "S", "elapsed_s": 2.7, "certified": 0, "published": 0, "verifications": 1, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "itsdangerous-guard_raise-04--forward", "arm": "S", "elapsed_s": 1.0, "certified": 0, "published": 0, "verifications": 1, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "jinja-guard_raise-01--forward", "arm": "S", "elapsed_s": 8.9, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "more-itertools-guard_raise-04--forward", "arm": "S", "elapsed_s": 14.8, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": false, "deferred": ""}
+{"label": "packaging-guard_raise-01--forward", "arm": "S", "elapsed_s": 10.3, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "python-dotenv-guard_raise-01--forward", "arm": "S", "elapsed_s": 7.2, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "urllib3-guard_raise-04--forward", "arm": "S", "elapsed_s": 10.5, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "attrs-none_guard-15--forward", "arm": "S", "elapsed_s": 8.9, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "click-guard_raise-05--forward", "arm": "S", "elapsed_s": 10.1, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "itsdangerous-guard_raise-05--forward", "arm": "S", "elapsed_s": 7.5, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "jinja-none_guard-13--forward", "arm": "S", "elapsed_s": 9.6, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "more-itertools-guard_raise-05--forward", "arm": "S", "elapsed_s": 14.9, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": false, "deferred": ""}
+{"label": "packaging-guard_raise-06--forward", "arm": "S", "elapsed_s": 11.5, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "python-dotenv-guard_raise-02--forward", "arm": "S", "elapsed_s": 7.4, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "urllib3-none_guard-15--forward", "arm": "S", "elapsed_s": 10.1, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "attrs-none_guard-17--forward", "arm": "S", "elapsed_s": 9.0, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "click-none_guard-15--forward", "arm": "S", "elapsed_s": 2.8, "certified": 0, "published": 0, "verifications": 1, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "itsdangerous-guard_raise-06--forward", "arm": "S", "elapsed_s": 7.1, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "jinja-none_guard-14--forward", "arm": "S", "elapsed_s": 9.4, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "more-itertools-none_guard-17--forward", "arm": "S", "elapsed_s": 5.0, "certified": 0, "published": 0, "verifications": 1, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "packaging-none_guard-13--forward", "arm": "S", "elapsed_s": 4.3, "certified": 0, "published": 0, "verifications": 1, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "python-dotenv-guard_raise-04--forward", "arm": "S", "elapsed_s": 7.6, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "urllib3-none_guard-18--forward", "arm": "S", "elapsed_s": 10.5, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+=== forty S end 12:23:21
+=== forty E start 12:23:21
+{"label": "attrs-boundary-09--forward", "arm": "E", "elapsed_s": 2.0, "certified": 0, "published": 0, "verifications": 1, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "click-boundary-07--forward", "arm": "E", "elapsed_s": 10.9, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "itsdangerous-boundary-07--forward", "arm": "E", "elapsed_s": 7.9, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "jinja-boundary-09--forward", "arm": "E", "elapsed_s": 9.6, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "more-itertools-boundary-08--forward", "arm": "E", "elapsed_s": 15.4, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "packaging-boundary-08--forward", "arm": "E", "elapsed_s": 11.7, "certified": 1, "published": 1, "verifications": 1, "probes": [["contract", "tests/test_musllinux.py:57#0"]], "fidelity": true, "deferred": ""}
+{"label": "python-dotenv-boundary-06--forward", "arm": "E", "elapsed_s": 7.6, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "urllib3-boundary-07--forward", "arm": "E", "elapsed_s": 12.4, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "attrs-guard_raise-03--forward", "arm": "E", "elapsed_s": 11.4, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "click-boundary-10--forward", "arm": "E", "elapsed_s": 16.9, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "itsdangerous-guard_raise-01--forward", "arm": "E", "elapsed_s": 7.4, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "jinja-boundary-12--forward", "arm": "E", "elapsed_s": 10.2, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "more-itertools-boundary-10--forward", "arm": "E", "elapsed_s": 15.6, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "packaging-boundary-11--forward", "arm": "E", "elapsed_s": 8.5, "certified": 0, "published": 0, "verifications": 1, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "python-dotenv-boundary-08--forward", "arm": "E", "elapsed_s": 7.6, "certified": 0, "published": 0, "verifications": 1, "probes": [["contract", "tests/test_variables.py:35#0"]], "fidelity": true, "deferred": ""}
+{"label": "urllib3-guard_raise-03--forward", "arm": "E", "elapsed_s": 11.6, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "attrs-none_guard-14--forward", "arm": "E", "elapsed_s": 8.9, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "click-guard_raise-03--forward", "arm": "E", "elapsed_s": 3.9, "certified": 0, "published": 0, "verifications": 1, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "itsdangerous-guard_raise-04--forward", "arm": "E", "elapsed_s": 1.7, "certified": 0, "published": 0, "verifications": 1, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "jinja-guard_raise-01--forward", "arm": "E", "elapsed_s": 9.5, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "more-itertools-guard_raise-04--forward", "arm": "E", "elapsed_s": 15.5, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": false, "deferred": ""}
+{"label": "packaging-guard_raise-01--forward", "arm": "E", "elapsed_s": 11.7, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "python-dotenv-guard_raise-01--forward", "arm": "E", "elapsed_s": 7.8, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "urllib3-guard_raise-04--forward", "arm": "E", "elapsed_s": 13.0, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "attrs-none_guard-15--forward", "arm": "E", "elapsed_s": 9.7, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "click-guard_raise-05--forward", "arm": "E", "elapsed_s": 10.9, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "itsdangerous-guard_raise-05--forward", "arm": "E", "elapsed_s": 7.8, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "jinja-none_guard-13--forward", "arm": "E", "elapsed_s": 11.1, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "more-itertools-guard_raise-05--forward", "arm": "E", "elapsed_s": 15.7, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": false, "deferred": ""}
+{"label": "packaging-guard_raise-06--forward", "arm": "E", "elapsed_s": 11.9, "certified": 1, "published": 1, "verifications": 1, "probes": [["contract", "tests/test_direct_url.py:95#0"]], "fidelity": true, "deferred": ""}
+{"label": "python-dotenv-guard_raise-02--forward", "arm": "E", "elapsed_s": 7.6, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "urllib3-none_guard-15--forward", "arm": "E", "elapsed_s": 28.5, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "attrs-none_guard-17--forward", "arm": "E", "elapsed_s": 9.7, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "click-none_guard-15--forward", "arm": "E", "elapsed_s": 4.1, "certified": 0, "published": 0, "verifications": 1, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "itsdangerous-guard_raise-06--forward", "arm": "E", "elapsed_s": 8.0, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "jinja-none_guard-14--forward", "arm": "E", "elapsed_s": 9.7, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "more-itertools-none_guard-17--forward", "arm": "E", "elapsed_s": 6.2, "certified": 0, "published": 0, "verifications": 1, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "packaging-none_guard-13--forward", "arm": "E", "elapsed_s": 7.9, "certified": 0, "published": 0, "verifications": 1, "probes": [], "fidelity": true, "deferred": ""}
+{"label": "python-dotenv-guard_raise-04--forward", "arm": "E", "elapsed_s": 7.5, "certified": 1, "published": 1, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "urllib3-none_guard-18--forward", "arm": "E", "elapsed_s": 12.2, "certified": 1, "published": 1, "verifications": 1, "probes": [["contract", "test/test_poolmanager.py:423#0"]], "fidelity": true, "deferred": ""}
+=== forty E end 12:30:17
+=== counterexamples S start 12:30:17
+{"label": "packaging-boundary-08--forward@714f64e649e5", "arm": "S", "elapsed_s": 11.7, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "packaging-boundary-08--forward@70d95e591749", "arm": "S", "elapsed_s": 11.2, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "packaging-boundary-08--forward@83c04303a5f0", "arm": "S", "elapsed_s": 11.3, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "packaging-guard_raise-06--forward@58718aa6b463", "arm": "S", "elapsed_s": 11.3, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "urllib3-none_guard-18--forward@26a47b43fc2f", "arm": "S", "elapsed_s": 10.2, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+{"label": "urllib3-none_guard-18--forward@882f0431b2b4", "arm": "S", "elapsed_s": 10.1, "certified": 0, "published": 0, "verifications": 1, "probes": [["model", ""]], "fidelity": true, "deferred": ""}
+=== counterexamples S end 12:31:24
+=== counterexamples E start 12:31:24

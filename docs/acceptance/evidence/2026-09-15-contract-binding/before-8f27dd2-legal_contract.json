@@ -1,0 +1,46 @@
+[
+  {
+    "scenario": "legal_contract",
+    "policy": "attest.intent.v6",
+    "contract_probes": true,
+    "model_calls": 0,
+    "contract_search": {
+      "probes": [
+        "tests/test_geo.py:6#0 parse(text)"
+      ],
+      "refused": [],
+      "chosen": "tests/test_geo.py:6#0"
+    },
+    "probe": {
+      "source": "contract",
+      "origin": "tests/test_geo.py:6#0",
+      "setup": "text = '1,2'",
+      "expression": "parse(text)"
+    },
+    "outcome": "deferred",
+    "evidence_class": "behavior_change",
+    "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+    "reader": [
+      {
+        "kind": "bound_assertion",
+        "symbol": "parse",
+        "input": "'9,9'",
+        "expected": "Point(1, 2)",
+        "derived": "Point(x=1, y=2)",
+        "pinned": "'Point(x=1, y=2)'",
+        "source": "tests/test_geo.py:6",
+        "call_path": "parse <- tests/test_geo.py::test_parse",
+        "input_bound": false,
+        "evaluated": true,
+        "path_bound": true,
+        "admitted": false,
+        "reason": "the source's input ('9,9') is not the probe's ('1,2')",
+        "standing_at_head": true
+      }
+    ],
+    "reader_admitted": false,
+    "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+    "certification": "not_attempted",
+    "certification_reason": "execution outcome deferred (behavior_change) buys no receipt"
+  }
+]

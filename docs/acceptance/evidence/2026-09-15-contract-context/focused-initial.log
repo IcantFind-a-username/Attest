@@ -1,0 +1,21 @@
+.F...................................................................... [ 75%]
+........................                                                 [100%]
+=================================== FAILURES ===================================
+_ test_implicit_context_cannot_certify_a_declared_reasonable_change[ancestor_conftest] _
+
+tmp_path = PosixPath('/private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80000gn/T/pytest-of-franz/pytest-110/test_implicit_context_cannot_c1')
+name = 'ancestor_conftest'
+
+    @pytest.mark.parametrize("name", CASES)
+    def test_implicit_context_cannot_certify_a_declared_reasonable_change(
+        tmp_path: Path, name: str,
+    ) -> None:
+        result = measure(name, tmp_path)
+    
+        assert all(run["exit"] == 0 for run in result["original_suite"].values())
+>       assert result["reader_admitted"] is False
+E       assert None is False
+
+tests/test_contract_context.py:22: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_contract_context.py::test_implicit_context_cannot_certify_a_declared_reasonable_change[ancestor_conftest]

@@ -1,0 +1,37 @@
+{
+  "cases": 40,
+  "buckets": {
+    "search: no differential": 7,
+    "nothing in the tree about this input": 6,
+    "certified (arm C)": 13,
+    "specified once the symbol is anchored (D-249)": 3,
+    "object-valued expected side (unread form)": 4,
+    "generic constant only": 1,
+    "deleted guard: exception unnamed about the symbol": 6
+  },
+  "own_tests": {
+    "no test names a touched symbol": 9,
+    "inconclusive": 3,
+    "own tests pass on the mutant": 7,
+    "own tests catch the mutant": 21
+  },
+  "bucket_by_own_tests": {
+    "certified (arm C) | inconclusive": 1,
+    "certified (arm C) | no test names a touched symbol": 2,
+    "certified (arm C) | own tests catch the mutant": 7,
+    "certified (arm C) | own tests pass on the mutant": 3,
+    "deleted guard: exception unnamed about the symbol | no test names a touched symbol": 2,
+    "deleted guard: exception unnamed about the symbol | own tests catch the mutant": 2,
+    "deleted guard: exception unnamed about the symbol | own tests pass on the mutant": 2,
+    "generic constant only | inconclusive": 1,
+    "nothing in the tree about this input | inconclusive": 1,
+    "nothing in the tree about this input | no test names a touched symbol": 3,
+    "nothing in the tree about this input | own tests catch the mutant": 1,
+    "nothing in the tree about this input | own tests pass on the mutant": 1,
+    "object-valued expected side (unread form) | own tests catch the mutant": 4,
+    "search: no differential | no test names a touched symbol": 2,
+    "search: no differential | own tests catch the mutant": 4,
+    "search: no differential | own tests pass on the mutant": 1,
+    "specified once the symbol is anchored (D-249) | own tests catch the mutant": 3
+  }
+}

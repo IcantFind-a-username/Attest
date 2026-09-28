@@ -21,7 +21,9 @@ from typing import Any
 
 from attest.certification.binding import BindingObservation
 from attest.certification.intent import (
+    INTENT_POLICY_V6,
     POLICY_FIELDS,
+    ContractRecord,
     IntentObservation,
     evidence_class_for,
     intent_verdict,
@@ -192,7 +194,7 @@ def write_bundle(
     if binding is not None:
         put("binding.json", canonical_bytes(asdict(binding)))
     if intent is not None:
-        put("intent.json", canonical_bytes(asdict(intent)))
+        put("intent.json", canonical_bytes(intent.record()))
     for side, index, run, revision in runs:
         record = run_record(side, index, run, revision_sha=revision)
         run_id = str(record["run_id"])
@@ -242,10 +244,25 @@ def intent_reasons(
     record must carry exactly the fields that version defines. A field a later
     version added is not part of an older observation's digest, so a record
     carrying one is malformed rather than silently unbound.
+
+    D-255: what this re-judges is the *recorded observation*, trusted as recorded.
+    Under v6.1 the rule recomputes each contract's admission from its recorded
+    bindings and refuses a record that contradicts itself; nothing here rebuilds a
+    binding from the contract's source, which the bundle does not carry. A record
+    whose bindings were wrongly computed but agree with each other verifies.
     """
     record = dict(intent_raw)
     fields = POLICY_FIELDS.get(str(record.get("policy_version", "")))
     if fields is not None and set(record) != set(fields):
+        return ("intent observation malformed",)
+    # D-255: a contract record carries exactly the fields its version defines too
+    contract_fields = set(ContractRecord.__dataclass_fields__)
+    if record.get("policy_version") == INTENT_POLICY_V6:
+        contract_fields -= {"flow_bound", "flow_reason"}
+    contracts = record.get("contracts", [])
+    if not isinstance(contracts, list) or any(
+        not isinstance(c, dict) or set(c) != contract_fields for c in contracts
+    ):
         return ("intent observation malformed",)
     try:
         record["changed_lines"] = tuple(record["changed_lines"])

@@ -15,6 +15,8 @@ make that safe to put in front of an author:
 
 from __future__ import annotations
 
+import pytest
+
 from attest.github.presentation import (
     MAX_STRUCTURAL_COMMENTS,
     STRUCTURAL_HEADING,
@@ -23,6 +25,7 @@ from attest.github.presentation import (
     render_complete,
     structural_comments,
 )
+from attest.review.output_contract import check_summary
 from attest.review.structural import (
     describe,
     evidence_sentence,
@@ -30,6 +33,17 @@ from attest.review.structural import (
     functions_of,
     structural_note,
 )
+
+
+@pytest.mark.parametrize("count", [1, 2, 3])
+def test_structural_summary_has_one_heading_and_counts_only_shown_notes(count: int) -> None:
+    note = structural_note(_findings()[0])
+    body = render_complete([], 0.0, 1.0, structural=[note] * count)
+    assert body.count(STRUCTURAL_HEADING) == 1
+    assert f"{STRUCTURAL_HEADING} {min(count, 2)}\n\n" in body
+    assert body.count("- [green]") == min(count, 2)
+    assert "- - [green]" not in body
+    assert check_summary(body)
 
 ORIGINAL = '''
 def summarise_orders(rows, floor):

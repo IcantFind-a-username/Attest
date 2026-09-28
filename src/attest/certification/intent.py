@@ -151,8 +151,26 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import asdict, dataclass
+from typing import Any
 
-INTENT_POLICY_VERSION = "attest.intent.v5.1"  # D-240
+INTENT_POLICY_VERSION = "attest.intent.v5.1"  # D-240; the shipped rule
+# D-252 (2026-09-15): experimental, selected only by a caller that asks for it --
+# never the default. A specification may also be a *contract*: a base test's
+# object-valued expected side, a parametrize row, or an exception a test
+# expects through a caller of the touched symbol, admitted only when it binds
+# the probe's concrete input, a value the observer can derive mechanically,
+# and a call path that resolves to the anchored module. Every contract found
+# is recorded with why it was or was not admitted.
+INTENT_POLICY_V6 = "attest.intent.v6"
+# D-255 (2026-09-15): experimental, superseding v6 in the product path. A contract
+# binds its input at the program point of the assertion it is read from -- the
+# statements every run executes before it, at the test body's own level -- and the
+# reader refuses one whose path it cannot read (`flow_bound`). The kernel no longer
+# takes the observer's `admitted` flag as evidence: it recomputes admission from the
+# recorded binding fields, refuses a record whose flag disagrees, and unions the
+# values admissible contracts cover into the specified set itself. A v6 receipt is
+# still judged by v6's rule and digested over v6's record (D-121).
+INTENT_POLICY_V61 = "attest.intent.v6.1"
 INTENT_POLICY_V5 = "attest.intent.v5"  # D-232, before D-240
 INTENT_POLICY_V1 = "attest.intent.new-rejection.v1"  # D-102, before D-120
 INTENT_POLICY_V2 = "attest.intent.v2"  # D-120, before D-127
@@ -200,6 +218,120 @@ GENERIC_VALUE_REPRS = frozenset(
         "{}",
     }
 )
+
+
+@dataclass(frozen=True)
+class ContractRecord:
+    """One specification the observer found and bound to the probe's own call
+    under `attest.intent.v6`. Recorded whether or not it is admitted, so that a
+    reader of the ledger sees the contract that exists and the link it lacks.
+
+    A contract is admitted only when all three bindings hold: the source states
+    the *same concrete input* the probe called with (``input_bound``), the
+    expected side is a value the observer *derived mechanically* -- a literal, or
+    a ``NamedTuple``/``dataclass`` constructor of the tree with literal fields,
+    never a guess (``evaluated``) -- and the source's call and the probe's call
+    *resolve to the same entry* of the anchored module, or through the same
+    caller (``path_bound``); and then only when the derived value is one the
+    failing assertion pins (``pinned``)."""
+
+    kind: str  # "bound_assertion" | "parametrize_row" | "caller_raises"
+    symbol: str  # the touched symbol the contract is about
+    input: str  # the concrete input the source states, as source text
+    expected: str  # the expected side as source text, or the exception type name
+    derived: str  # the repr the observer derived from `expected`; "" when it could not
+    pinned: str  # the pinned value this contract covers; "" when it covers none
+    source: str  # path:line of the specification in the base tree
+    call_path: str  # how the source reaches the symbol: its own call, or via a caller
+    input_bound: bool
+    evaluated: bool
+    path_bound: bool
+    admitted: bool
+    reason: str
+    # D-253: the same contract -- kind, symbol, input and derived value -- is still
+    # in the head tree. A change that removes or rewrites the test a contract stands
+    # on has said what it meant, whether or not that test names the touched symbol.
+    standing_at_head: bool = False
+    # D-255 (v6.1): every run of the test reaches the source's call along a path the
+    # reader read -- statements at the test body's own level, none of which leaves the
+    # test, rebinds, changes, aliases or hands away a name the call depends on -- so the
+    # input bound at that point is the input the assertion checks. Not part of a v6
+    # record: `IntentObservation.record` drops both fields there.
+    flow_bound: bool = False
+    flow_reason: str = ""  # why the program point was not read; "" when it was
+
+
+CONTRACT_KINDS = frozenset({"bound_assertion", "parametrize_row", "caller_raises"})
+_V61_ONLY_CONTRACT_FIELDS = ("flow_bound", "flow_reason")
+
+
+def contract_admissible(contract: ContractRecord) -> bool:
+    """D-255: what the recorded bindings admit, whatever the record's own flag says.
+
+    Every binding holds -- same input, a derived value, the same entry, standing at
+    head, the program point read -- and the covered value is the derived value in one
+    of its two spellings (itself, or its repr as the replay compares an object)."""
+    return (
+        contract.kind in CONTRACT_KINDS
+        and contract.input_bound
+        and contract.evaluated
+        and bool(contract.derived)
+        and contract.path_bound
+        and contract.standing_at_head
+        and contract.flow_bound
+        and bool(contract.pinned)
+        and contract.pinned in (contract.derived, repr(contract.derived))
+    )
+
+
+def contract_record_problem(observation: IntentObservation) -> str | None:
+    """D-255 (v6.1): why the recorded contracts cannot be believed, or None.
+
+    The observer's ``admitted`` flag is a claim, not evidence: a record whose flag
+    disagrees with its own bindings, that covers a value the failing assertion does
+    not pin, or that is about a symbol this change did not touch is inconsistent,
+    and an inconsistent observation publishes nothing. This checks the record
+    against itself; it cannot check the record against the contract's source, which
+    a bundle does not carry."""
+    if observation.policy_version not in _V61_RULE_VERSIONS:
+        return None
+    pinned = set(observation.pinned_values)
+    anchored = set(observation.anchored_symbols)
+    for c in observation.contracts:
+        admissible = contract_admissible(c)
+        if c.admitted != admissible:
+            return (
+                f"contract record inconsistent: {c.source} is recorded "
+                f"{'admitted' if c.admitted else 'refused'} but its bindings "
+                f"{'admit' if admissible else 'do not admit'} it"
+            )
+        if c.admitted and c.pinned not in pinned:
+            return (
+                f"contract record inconsistent: {c.source} covers a value the failing "
+                "assertion does not pin"
+            )
+        if c.admitted and c.symbol not in anchored and c.symbol.rsplit(".", 1)[-1] not in anchored:
+            return (
+                f"contract record inconsistent: {c.source} is about {c.symbol}, which this "
+                "change did not touch"
+            )
+    return None
+
+
+def admitted_contract_values(observation: IntentObservation) -> frozenset[str]:
+    """The pinned values an admitted contract covers; empty under every version
+    before v6, because no such record exists there.
+
+    Under v6 that is the record's own ``admitted`` flag. Under v6.1 (D-255) it is
+    what the bindings admit, recomputed here, and nothing at all when the record is
+    inconsistent."""
+    if observation.policy_version in _V61_RULE_VERSIONS:
+        if contract_record_problem(observation) is not None:
+            return frozenset()
+        return frozenset(c.pinned for c in observation.contracts if contract_admissible(c))
+    return frozenset(
+        c.pinned for c in observation.contracts if c.admitted and c.pinned
+    )
 
 
 @dataclass(frozen=True)
@@ -252,15 +384,47 @@ class IntentObservation:
     # range the binding policy uses (three context lines each side, since
     # V-02); the frame rule is read against these.
     added_lines: tuple[int, ...] = ()
+    # D-252 (v6): every contract the observer found for the pinned values, admitted
+    # or not, with the binding it has and the one it lacks. Empty under every
+    # earlier version, which never looked.
+    contracts: tuple[ContractRecord, ...] = ()
+
+    def __post_init__(self) -> None:
+        # a reader rebuilding the observation from JSON hands the contracts back
+        # as dictionaries; the rule reads attributes, so they are records again
+        if any(not isinstance(c, ContractRecord) for c in self.contracts):
+            object.__setattr__(
+                self,
+                "contracts",
+                tuple(
+                    c if isinstance(c, ContractRecord) else ContractRecord(**c)
+                    for c in self.contracts
+                ),
+            )
+
+    def record(self) -> dict[str, Any]:
+        """The observation as a bundle or ledger writes it: exactly the fields
+        the recorded policy version defines (D-121), so that a field a later
+        version added -- v6's ``contracts`` -- never reaches an older record,
+        whose reader would rightly call it malformed. An unknown version is
+        written whole; it cannot publish either way."""
+        values = asdict(self)
+        fields = POLICY_FIELDS.get(self.policy_version)
+        if fields is not None:
+            values = {name: values[name] for name in values if name in fields}
+        if self.policy_version == INTENT_POLICY_V6 and "contracts" in values:
+            # D-255 added two fields to a contract; a v6 record never had them
+            values["contracts"] = [
+                {k: v for k, v in c.items() if k not in _V61_ONLY_CONTRACT_FIELDS}
+                for c in values["contracts"]
+            ]
+        return values
 
     def digest(self) -> str:
         """Over exactly the fields the recorded policy version defines, so that a
         receipt's digest never moves when a later version adds a field. An
         unknown version is digested whole; it cannot publish either way."""
-        values = asdict(self)
-        fields = POLICY_FIELDS.get(self.policy_version)
-        if fields is not None:
-            values = {name: values[name] for name in values if name in fields}
+        values = self.record()
         return hashlib.sha256(
             json.dumps(
                 values, sort_keys=True, separators=(",", ":"), ensure_ascii=False
@@ -299,6 +463,8 @@ _V4_FIELDS = (
 )
 # D-232: v5 records the exception's path through the anchored file.
 _V5_FIELDS = (*_V4_FIELDS, "path_lines", "added_lines")
+# D-252: v6 records the contracts the observer found and how each was bound.
+_V6_FIELDS = (*_V5_FIELDS, "contracts")
 POLICY_FIELDS: dict[str, tuple[str, ...]] = {
     INTENT_POLICY_V1: _V1_FIELDS,
     INTENT_POLICY_V2: _V2_FIELDS,
@@ -315,6 +481,10 @@ POLICY_FIELDS: dict[str, tuple[str, ...]] = {
     # specification of a pinned value (a base test that expects the exception),
     # not what an observation is made of.
     INTENT_POLICY_VERSION: _V5_FIELDS,
+    INTENT_POLICY_V6: _V6_FIELDS,
+    # v6.1 records v6's fields; what changed is how a contract is bound (two more
+    # fields inside each contract record) and that the kernel recomputes admission.
+    INTENT_POLICY_V61: _V6_FIELDS,
 }
 _CONSTANT_RULE_VERSIONS = frozenset(
     {
@@ -325,6 +495,8 @@ _CONSTANT_RULE_VERSIONS = frozenset(
         INTENT_POLICY_V42,
         INTENT_POLICY_V5,
         INTENT_POLICY_VERSION,
+        INTENT_POLICY_V6,
+        INTENT_POLICY_V61,
     }
 )
 _VALUE_RULE_VERSIONS = frozenset(
@@ -335,6 +507,8 @@ _VALUE_RULE_VERSIONS = frozenset(
         INTENT_POLICY_V42,
         INTENT_POLICY_V5,
         INTENT_POLICY_VERSION,
+        INTENT_POLICY_V6,
+        INTENT_POLICY_V61,
     }
 )
 # D-132 (b) and (c) arrived together and neither reaches a v1, v2 or v3 receipt.
@@ -345,13 +519,29 @@ _V4_RULE_VERSIONS = frozenset(
         INTENT_POLICY_V42,
         INTENT_POLICY_V5,
         INTENT_POLICY_VERSION,
+        INTENT_POLICY_V6,
+        INTENT_POLICY_V61,
     }
 )
 # D-174's association rule reaches v4.2 and later, nothing earlier.
-_V42_RULE_VERSIONS = frozenset({INTENT_POLICY_V42, INTENT_POLICY_V5, INTENT_POLICY_VERSION})
+_V42_RULE_VERSIONS = frozenset(
+    {
+        INTENT_POLICY_V42,
+        INTENT_POLICY_V5,
+        INTENT_POLICY_VERSION,
+        INTENT_POLICY_V6,
+        INTENT_POLICY_V61,
+    }
+)
 # D-232's frame rule reaches v5 and nothing earlier: under every version before
 # it a new rejection is a raise/assert *statement* on a changed line.
-_V5_RULE_VERSIONS = frozenset({INTENT_POLICY_V5, INTENT_POLICY_VERSION})
+_V5_RULE_VERSIONS = frozenset(
+    {INTENT_POLICY_V5, INTENT_POLICY_VERSION, INTENT_POLICY_V6, INTENT_POLICY_V61}
+)
+# D-252: the contract rule reaches v6 and nothing earlier.
+_V6_RULE_VERSIONS = frozenset({INTENT_POLICY_V6, INTENT_POLICY_V61})
+# D-255: recomputed admission and the record's consistency reach v6.1 alone.
+_V61_RULE_VERSIONS = frozenset({INTENT_POLICY_V61})
 
 
 def is_warning_type(name: str) -> bool:
@@ -408,8 +598,18 @@ def distinctive_pinned_values(observation: IntentObservation) -> tuple[str, ...]
     """
     if observation.policy_version not in _V4_RULE_VERSIONS:
         return observation.pinned_values
+    # D-252 (v6): a contract holds by (symbol, input, relation), so a generic
+    # constant an admitted contract covers is a specified value, not a
+    # coincidence of vocabulary
+    covered = (
+        admitted_contract_values(observation)
+        if observation.policy_version in _V6_RULE_VERSIONS
+        else frozenset()
+    )
     return tuple(
-        value for value in observation.pinned_values if value not in GENERIC_VALUE_REPRS
+        value
+        for value in observation.pinned_values
+        if value not in GENERIC_VALUE_REPRS or value in covered
     )
 
 
@@ -424,6 +624,9 @@ def value_change_reason(observation: IntentObservation) -> str | None:
     """
     if not value_change(observation):
         return None
+    problem = contract_record_problem(observation)
+    if problem is not None:
+        return f"{VALUE_CHANGE_LABEL}: {problem} ({VALUE_CHANGE_LABEL_ZH})"
     distinctive = distinctive_pinned_values(observation)
     # Most specific first: the change rewrote the very sentence the receipt would
     # have contradicted. Then D-132 (c): the change said what it meant somewhere
@@ -460,6 +663,9 @@ def value_change_reason(observation: IntentObservation) -> str | None:
             f"for it ({UNANCHORED_LABEL_ZH})"
         )
     specified = {value for value, _path in observation.value_specified}
+    if observation.policy_version in _V61_RULE_VERSIONS:
+        # D-255: the kernel, not the observer, adds what admissible contracts cover
+        specified |= admitted_contract_values(observation)
     if any(value not in specified for value in distinctive):
         about = (
             " about the symbol this change touched"
@@ -516,6 +722,10 @@ def intent_verdict(observation: IntentObservation) -> str | None:
         return "unknown intent policy"
     if observation.head_runs_observed < 1:
         return "no head run observed"
+    problem = contract_record_problem(observation)
+    if problem is not None:
+        # D-255: before every other rule -- a record that contradicts itself says nothing
+        return problem
     if warning_rejection(observation):
         # D-235, before every rejection rule and under every version: this is
         # not a rejection whose intent could be unknown, so it carries no drawer

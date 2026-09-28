@@ -1,0 +1,909 @@
+{
+  "run_id": "r2",
+  "forty": {
+    "cases": 40,
+    "with_a_frozen_probe": 33,
+    "arm_c_recorded_certified": 13,
+    "certified_v5.1": 16,
+    "certified_v6": 16,
+    "new_v5.1_vs_arm_c": [
+      "more-itertools-boundary-08--forward",
+      "more-itertools-guard_raise-04--forward",
+      "more-itertools-guard_raise-05--forward"
+    ],
+    "lost_v5.1_vs_arm_c": [],
+    "new_attributable_to_d249": [
+      "more-itertools-boundary-08--forward",
+      "more-itertools-guard_raise-04--forward",
+      "more-itertools-guard_raise-05--forward"
+    ],
+    "new_not_attributable_to_d249": [],
+    "v6_gained_over_v5.1": [],
+    "v6_lost_against_v5.1": [],
+    "per_case": {
+      "attrs-boundary-09--forward": {
+        "recorded": "no receipt",
+        "v5.1": "no frozen probe with a differential (0 probe(s) recorded, none with a base observation and a differing head observation)",
+        "v6": "no frozen probe with a differential (0 probe(s) recorded, none with a base observation and a differing head observation)"
+      },
+      "attrs-guard_raise-03--forward": {
+        "recorded": "value class",
+        "v5.1": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --",
+        "v6": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --"
+      },
+      "attrs-none_guard-14--forward": {
+        "recorded": "certified",
+        "v5.1": "certified",
+        "v6": "certified"
+      },
+      "attrs-none_guard-15--forward": {
+        "recorded": "certified",
+        "v5.1": "certified",
+        "v6": "certified"
+      },
+      "attrs-none_guard-17--forward": {
+        "recorded": "certified",
+        "v5.1": "certified",
+        "v6": "certified"
+      },
+      "click-boundary-07--forward": {
+        "recorded": "value class",
+        "v5.1": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --",
+        "v6": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --"
+      },
+      "click-boundary-10--forward": {
+        "recorded": "value class",
+        "v5.1": "value change confirmed, intent unknown: the failing assertion pins only a generic constant, which almost any tree asserts somewhere and whic",
+        "v6": "value change confirmed, intent unknown: the failing assertion pins only a generic constant, which almost any tree asserts somewhere and whic"
+      },
+      "click-guard_raise-03--forward": {
+        "recorded": "no receipt",
+        "v5.1": "no frozen probe with a differential (0 probe(s) recorded, none with a base observation and a differing head observation)",
+        "v6": "no frozen probe with a differential (0 probe(s) recorded, none with a base observation and a differing head observation)"
+      },
+      "click-guard_raise-05--forward": {
+        "recorded": "value class",
+        "v5.1": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --",
+        "v6": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --"
+      },
+      "click-none_guard-15--forward": {
+        "recorded": "no receipt",
+        "v5.1": "no frozen probe with a differential (0 probe(s) recorded, none with a base observation and a differing head observation)",
+        "v6": "no frozen probe with a differential (0 probe(s) recorded, none with a base observation and a differing head observation)"
+      },
+      "itsdangerous-boundary-07--forward": {
+        "recorded": "certified",
+        "v5.1": "certified",
+        "v6": "certified"
+      },
+      "itsdangerous-guard_raise-01--forward": {
+        "recorded": "value class",
+        "v5.1": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --",
+        "v6": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --"
+      },
+      "itsdangerous-guard_raise-04--forward": {
+        "recorded": "no receipt",
+        "v5.1": "no frozen probe with a differential (0 probe(s) recorded, none with a base observation and a differing head observation)",
+        "v6": "no frozen probe with a differential (0 probe(s) recorded, none with a base observation and a differing head observation)"
+      },
+      "itsdangerous-guard_raise-05--forward": {
+        "recorded": "certified",
+        "v5.1": "certified",
+        "v6": "certified"
+      },
+      "itsdangerous-guard_raise-06--forward": {
+        "recorded": "certified",
+        "v5.1": "certified",
+        "v6": "certified"
+      },
+      "jinja-boundary-09--forward": {
+        "recorded": "certified",
+        "v5.1": "certified",
+        "v6": "certified"
+      },
+      "jinja-boundary-12--forward": {
+        "recorded": "value class",
+        "v5.1": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --",
+        "v6": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --"
+      },
+      "jinja-guard_raise-01--forward": {
+        "recorded": "value class",
+        "v5.1": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --",
+        "v6": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --"
+      },
+      "jinja-none_guard-13--forward": {
+        "recorded": "value class",
+        "v5.1": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --",
+        "v6": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --"
+      },
+      "jinja-none_guard-14--forward": {
+        "recorded": "certified",
+        "v5.1": "certified",
+        "v6": "certified"
+      },
+      "more-itertools-boundary-08--forward": {
+        "recorded": "no receipt",
+        "v5.1": "certified",
+        "v6": "certified"
+      },
+      "more-itertools-boundary-10--forward": {
+        "recorded": "no receipt",
+        "v5.1": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --",
+        "v6": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --"
+      },
+      "more-itertools-guard_raise-04--forward": {
+        "recorded": "no receipt",
+        "v5.1": "certified",
+        "v6": "certified"
+      },
+      "more-itertools-guard_raise-05--forward": {
+        "recorded": "no receipt",
+        "v5.1": "certified",
+        "v6": "certified"
+      },
+      "more-itertools-none_guard-17--forward": {
+        "recorded": "no receipt",
+        "v5.1": "no frozen probe with a differential (0 probe(s) recorded, none with a base observation and a differing head observation)",
+        "v6": "no frozen probe with a differential (0 probe(s) recorded, none with a base observation and a differing head observation)"
+      },
+      "packaging-boundary-08--forward": {
+        "recorded": "value class",
+        "v5.1": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --",
+        "v6": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --"
+      },
+      "packaging-boundary-11--forward": {
+        "recorded": "no receipt",
+        "v5.1": "no frozen probe with a differential (0 probe(s) recorded, none with a base observation and a differing head observation)",
+        "v6": "no frozen probe with a differential (0 probe(s) recorded, none with a base observation and a differing head observation)"
+      },
+      "packaging-guard_raise-01--forward": {
+        "recorded": "certified",
+        "v5.1": "certified",
+        "v6": "certified"
+      },
+      "packaging-guard_raise-06--forward": {
+        "recorded": "value class",
+        "v5.1": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --",
+        "v6": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --"
+      },
+      "packaging-none_guard-13--forward": {
+        "recorded": "no receipt",
+        "v5.1": "no frozen probe with a differential (0 probe(s) recorded, none with a base observation and a differing head observation)",
+        "v6": "no frozen probe with a differential (0 probe(s) recorded, none with a base observation and a differing head observation)"
+      },
+      "python-dotenv-boundary-06--forward": {
+        "recorded": "value class",
+        "v5.1": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --",
+        "v6": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --"
+      },
+      "python-dotenv-boundary-08--forward": {
+        "recorded": "value class",
+        "v5.1": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --",
+        "v6": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --"
+      },
+      "python-dotenv-guard_raise-01--forward": {
+        "recorded": "certified",
+        "v5.1": "certified",
+        "v6": "certified"
+      },
+      "python-dotenv-guard_raise-02--forward": {
+        "recorded": "value class",
+        "v5.1": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --",
+        "v6": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --"
+      },
+      "python-dotenv-guard_raise-04--forward": {
+        "recorded": "certified",
+        "v5.1": "certified",
+        "v6": "certified"
+      },
+      "urllib3-boundary-07--forward": {
+        "recorded": "value class",
+        "v5.1": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --",
+        "v6": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --"
+      },
+      "urllib3-guard_raise-03--forward": {
+        "recorded": "value class",
+        "v5.1": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --",
+        "v6": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --"
+      },
+      "urllib3-guard_raise-04--forward": {
+        "recorded": "certified",
+        "v5.1": "certified",
+        "v6": "certified"
+      },
+      "urllib3-none_guard-15--forward": {
+        "recorded": "certified",
+        "v5.1": "certified",
+        "v6": "certified"
+      },
+      "urllib3-none_guard-18--forward": {
+        "recorded": "value class",
+        "v5.1": "value change confirmed, intent unknown: the failing assertion pins only a generic constant, which almost any tree asserts somewhere and whic",
+        "v6": "value change confirmed, intent unknown: the failing assertion pins only a generic constant, which almost any tree asserts somewhere and whic"
+      }
+    }
+  },
+  "contracts": {
+    "attrs-guard_raise-03--forward": {
+      "probes_constructed": 0,
+      "not_constructible": [
+        "'C' is bound nowhere the rule reads"
+      ],
+      "probes_executed_v5.1": 0,
+      "differentials_held": 0,
+      "decisive_probe": null,
+      "cells": {
+        "frozen x v5.1": false,
+        "frozen x v6": false,
+        "contract x v5.1": false,
+        "contract x v6": false
+      },
+      "why": {
+        "frozen x v5.1": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --",
+        "frozen x v6": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --",
+        "contract x v5.1": "not run",
+        "contract x v6": "not run"
+      },
+      "contracts_on_the_decisive_v6_run": [],
+      "other_probes_certified_counted_nowhere": [],
+      "new_certification_depends_on": "no cell certifies"
+    },
+    "packaging-boundary-08--forward": {
+      "probes_constructed": 5,
+      "not_constructible": [],
+      "probes_executed_v5.1": 5,
+      "differentials_held": 3,
+      "decisive_probe": {
+        "imports": "from packaging._musllinux import _parse_musl_version",
+        "setup": "MUSL_AMD64 = 'musl libc (x86_64)\\nVersion 1.2.2\\n'\noutput = MUSL_AMD64",
+        "expression": "_parse_musl_version(output)",
+        "literals_hint": ""
+      },
+      "cells": {
+        "frozen x v5.1": false,
+        "frozen x v6": false,
+        "contract x v5.1": false,
+        "contract x v6": true
+      },
+      "why": {
+        "frozen x v5.1": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --",
+        "frozen x v6": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --",
+        "contract x v5.1": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --",
+        "contract x v6": "certified"
+      },
+      "contracts_on_the_decisive_v6_run": [
+        {
+          "kind": "parametrize_row",
+          "source": "tests/test_musllinux.py:57",
+          "input": "'musl libc (x86_64)\\nVersion 1.2.2\\n'",
+          "derived": "_MuslVersion(major=1, minor=2)",
+          "input_bound": true,
+          "evaluated": true,
+          "path_bound": true,
+          "standing_at_head": true,
+          "admitted": true,
+          "reason": "admitted: same input, derived value, same entry"
+        },
+        {
+          "kind": "parametrize_row",
+          "source": "tests/test_musllinux.py:57",
+          "input": "'musl libc (i386)\\nVersion 1.2.1\\n'",
+          "derived": "_MuslVersion(major=1, minor=2)",
+          "input_bound": false,
+          "evaluated": true,
+          "path_bound": true,
+          "standing_at_head": true,
+          "admitted": false,
+          "reason": "the source's input ('musl libc (i386)\\nVersion 1.2.1\\n') is not the probe's ('musl libc (x86_64)\\nVersion 1.2.2\\n')"
+        },
+        {
+          "kind": "parametrize_row",
+          "source": "tests/test_musllinux.py:57",
+          "input": "'musl libc (aarch64)\\nVersion 1.1.24\\n'",
+          "derived": "_MuslVersion(major=1, minor=1)",
+          "input_bound": false,
+          "evaluated": true,
+          "path_bound": true,
+          "standing_at_head": true,
+          "admitted": false,
+          "reason": "the source's input ('musl libc (aarch64)\\nVersion 1.1.24\\n') is not the probe's ('musl libc (x86_64)\\nVersion 1.2.2\\n')"
+        },
+        {
+          "kind": "parametrize_row",
+          "source": "tests/test_musllinux.py:57",
+          "input": "'musl libc (invalid)\\n'",
+          "derived": "None",
+          "input_bound": false,
+          "evaluated": true,
+          "path_bound": true,
+          "standing_at_head": true,
+          "admitted": false,
+          "reason": "the source's input ('musl libc (invalid)\\n') is not the probe's ('musl libc (x86_64)\\nVersion 1.2.2\\n')"
+        },
+        {
+          "kind": "parametrize_row",
+          "source": "tests/test_musllinux.py:57",
+          "input": "'musl libc (unknown)\\nVersion unknown\\n'",
+          "derived": "None",
+          "input_bound": false,
+          "evaluated": true,
+          "path_bound": true,
+          "standing_at_head": true,
+          "admitted": false,
+          "reason": "the source's input ('musl libc (unknown)\\nVersion unknown\\n') is not the probe's ('musl libc (x86_64)\\nVersion 1.2.2\\n')"
+        }
+      ],
+      "other_probes_certified_counted_nowhere": [
+        "packaging-boundary-08--forward/contract-2 under attest.intent.v6",
+        "packaging-boundary-08--forward/contract-3 under attest.intent.v6"
+      ],
+      "new_certification_depends_on": "both: the contract probe, and v6 admitting its contract"
+    },
+    "packaging-guard_raise-06--forward": {
+      "probes_constructed": 7,
+      "not_constructible": [
+        "'direct_url_dict' is a fixture of test_one_info_field",
+        "'url' is a fixture of test_dir_info_url_requires_absolute_file_url"
+      ],
+      "probes_executed_v5.1": 7,
+      "differentials_held": 1,
+      "decisive_probe": {
+        "imports": "from packaging.direct_url import DirectUrl",
+        "setup": "",
+        "expression": "DirectUrl.from_dict({'url': 'https://example.com/archive.zip', 'archive_info': {'hashes': {'md5': 12345}}})",
+        "literals_hint": ""
+      },
+      "cells": {
+        "frozen x v5.1": false,
+        "frozen x v6": false,
+        "contract x v5.1": false,
+        "contract x v6": true
+      },
+      "why": {
+        "frozen x v5.1": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --",
+        "frozen x v6": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --",
+        "contract x v5.1": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --",
+        "contract x v6": "certified"
+      },
+      "contracts_on_the_decisive_v6_run": [
+        {
+          "kind": "caller_raises",
+          "source": "tests/test_direct_url.py:95",
+          "input": "{'url': 'https://example.com/archive.zip', 'archive_info': {'hashes': {'md5': 12345}}}",
+          "derived": "'DirectUrlValidationError'",
+          "input_bound": true,
+          "evaluated": true,
+          "path_bound": true,
+          "standing_at_head": true,
+          "admitted": true,
+          "reason": "admitted: same input, derived value, same entry"
+        },
+        {
+          "kind": "caller_raises",
+          "source": "tests/test_direct_url.py:110",
+          "input": "{'url': 'https://example.com/archive.zip', 'archive_info': {'hash': 'md5:12345'}}",
+          "derived": "'DirectUrlValidationError'",
+          "input_bound": false,
+          "evaluated": true,
+          "path_bound": true,
+          "standing_at_head": true,
+          "admitted": false,
+          "reason": "the source's input ({'url': 'https://example.com/archive.zip', 'archive_info': {'hash': 'md5:12345'}}) is not the probe's ({'url': 'https://example.com/archive.zip', 'archive_info': {'hashes': {'md5': 12345}}})"
+        },
+        {
+          "kind": "caller_raises",
+          "source": "tests/test_direct_url.py:128",
+          "input": "<unbound>",
+          "derived": "'DirectUrlValidationError'",
+          "input_bound": false,
+          "evaluated": true,
+          "path_bound": true,
+          "standing_at_head": true,
+          "admitted": false,
+          "reason": "the source's input (<unbound>) is not the probe's ({'url': 'https://example.com/archive.zip', 'archive_info': {'hashes': {'md5': 12345}}})"
+        },
+        {
+          "kind": "caller_raises",
+          "source": "tests/test_direct_url.py:144",
+          "input": "{'url': 'https://example.com/archive.zip', 'archive_info': {'hashes': {'md5': '123456'}, 'hash': 'md5=12345'}}",
+          "derived": "'DirectUrlValidationError'",
+          "input_bound": false,
+          "evaluated": true,
+          "path_bound": true,
+          "standing_at_head": true,
+          "admitted": false,
+          "reason": "the source's input ({'url': 'https://example.com/archive.zip', 'archive_info': {'hashes': {'md5': '123456'}, 'hash': 'md5=12345'}}) is not the probe's ({'url': 'https://example.com/archive.zip', 'archive_info': {'hashes': {'md5': 12345}}})"
+        },
+        {
+          "kind": "caller_raises",
+          "source": "tests/test_direct_url.py:196",
+          "input": "{'url': 'file:///projects/myproject'}",
+          "derived": "'DirectUrlValidationError'",
+          "input_bound": false,
+          "evaluated": true,
+          "path_bound": true,
+          "standing_at_head": true,
+          "admitted": false,
+          "reason": "the source's input ({'url': 'file:///projects/myproject'}) is not the probe's ({'url': 'https://example.com/archive.zip', 'archive_info': {'hashes': {'md5': 12345}}})"
+        },
+        {
+          "kind": "caller_raises",
+          "source": "tests/test_direct_url.py:210",
+          "input": "{'url': 'https://example.com/projects/myproject', 'dir_info': {}}",
+          "derived": "'DirectUrlValidationError'",
+          "input_bound": false,
+          "evaluated": true,
+          "path_bound": true,
+          "standing_at_head": true,
+          "admitted": false,
+          "reason": "the source's input ({'url': 'https://example.com/projects/myproject', 'dir_info': {}}) is not the probe's ({'url': 'https://example.com/archive.zip', 'archive_info': {'hashes': {'md5': 12345}}})"
+        },
+        {
+          "kind": "caller_raises",
+          "source": "tests/test_direct_url.py:248",
+          "input": "<unbound>",
+          "derived": "'DirectUrlValidationError'",
+          "input_bound": false,
+          "evaluated": true,
+          "path_bound": true,
+          "standing_at_head": true,
+          "admitted": false,
+          "reason": "the source's input (<unbound>) is not the probe's ({'url': 'https://example.com/archive.zip', 'archive_info': {'hashes': {'md5': 12345}}})"
+        },
+        {
+          "kind": "caller_raises",
+          "source": "tests/test_direct_url.py:256",
+          "input": "{'dir_info': {}}",
+          "derived": "'DirectUrlValidationError'",
+          "input_bound": false,
+          "evaluated": true,
+          "path_bound": true,
+          "standing_at_head": true,
+          "admitted": false,
+          "reason": "the source's input ({'dir_info': {}}) is not the probe's ({'url': 'https://example.com/archive.zip', 'archive_info': {'hashes': {'md5': 12345}}})"
+        },
+        {
+          "kind": "caller_raises",
+          "source": "tests/test_direct_url.py:268",
+          "input": "{'url': 'https://g.c/user/repo.git', 'vcs_info': {'vcs': 'git', 'commit_id': 12345}}",
+          "derived": "'DirectUrlValidationError'",
+          "input_bound": false,
+          "evaluated": true,
+          "path_bound": true,
+          "standing_at_head": true,
+          "admitted": false,
+          "reason": "the source's input ({'url': 'https://g.c/user/repo.git', 'vcs_info': {'vcs': 'git', 'commit_id': 12345}}) is not the probe's ({'url': 'https://example.com/archive.zip', 'archive_info': {'hashes': {'md5': 12345}}})"
+        }
+      ],
+      "other_probes_certified_counted_nowhere": [],
+      "new_certification_depends_on": "both: the contract probe, and v6 admitting its contract"
+    },
+    "python-dotenv-boundary-08--forward": {
+      "probes_constructed": 6,
+      "not_constructible": [],
+      "probes_executed_v5.1": 6,
+      "differentials_held": 4,
+      "decisive_probe": {
+        "imports": "from dotenv.variables import parse_variables",
+        "setup": "value = ''\nresult = parse_variables(value)",
+        "expression": "list(result)",
+        "literals_hint": ""
+      },
+      "cells": {
+        "frozen x v5.1": false,
+        "frozen x v6": false,
+        "contract x v5.1": false,
+        "contract x v6": false
+      },
+      "why": {
+        "frozen x v5.1": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --",
+        "frozen x v6": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --",
+        "contract x v5.1": "value change confirmed, intent unknown: the failing assertion pins no value the base tree could have specified (返回值变化已证实，意图未知)",
+        "contract x v6": "value change confirmed, intent unknown: the failing assertion pins no value the base tree could have specified (返回值变化已证实，意图未知)"
+      },
+      "contracts_on_the_decisive_v6_run": [],
+      "other_probes_certified_counted_nowhere": [],
+      "new_certification_depends_on": "no cell certifies"
+    },
+    "urllib3-none_guard-18--forward": {
+      "probes_constructed": 2,
+      "not_constructible": [],
+      "probes_executed_v5.1": 2,
+      "differentials_held": 2,
+      "decisive_probe": {
+        "imports": "from urllib3.poolmanager import PoolManager\nfrom urllib3.util.url import Url",
+        "setup": "p = PoolManager()",
+        "expression": "p._proxy_requires_url_absolute_form(Url('http://example.com'))",
+        "literals_hint": ""
+      },
+      "cells": {
+        "frozen x v5.1": false,
+        "frozen x v6": false,
+        "contract x v5.1": false,
+        "contract x v6": true
+      },
+      "why": {
+        "frozen x v5.1": "value change confirmed, intent unknown: the failing assertion pins only a generic constant, which almost any tree asserts somewhere and whic",
+        "frozen x v6": "value change confirmed, intent unknown: the failing assertion pins only a generic constant, which almost any tree asserts somewhere and whic",
+        "contract x v5.1": "value change confirmed, intent unknown: the failing assertion pins only a generic constant, which almost any tree asserts somewhere and whic",
+        "contract x v6": "certified"
+      },
+      "contracts_on_the_decisive_v6_run": [
+        {
+          "kind": "bound_assertion",
+          "source": "test/test_poolmanager.py:423",
+          "input": "urllib3.poolmanager.PoolManager() :: urllib3.util.url.Url('http://example.com')",
+          "derived": "False",
+          "input_bound": true,
+          "evaluated": true,
+          "path_bound": true,
+          "standing_at_head": true,
+          "admitted": true,
+          "reason": "admitted: same input, derived value, same entry"
+        },
+        {
+          "kind": "bound_assertion",
+          "source": "test/test_poolmanager.py:424",
+          "input": "urllib3.poolmanager.PoolManager() :: urllib3.util.url.Url('https://example.com')",
+          "derived": "False",
+          "input_bound": false,
+          "evaluated": true,
+          "path_bound": true,
+          "standing_at_head": true,
+          "admitted": false,
+          "reason": "the source's input (urllib3.poolmanager.PoolManager() :: urllib3.util.url.Url('https://example.com')) is not the probe's (urllib3.poolmanager.PoolManager() :: urllib3.util.url.Url('http://example.com'))"
+        }
+      ],
+      "other_probes_certified_counted_nowhere": [
+        "urllib3-none_guard-18--forward/contract-2 under attest.intent.v6"
+      ],
+      "new_certification_depends_on": "both: the contract probe, and v6 admitting its contract"
+    }
+  },
+  "counterexamples": [
+    {
+      "label": "packaging-boundary-08--forward/contract-1/intended-change",
+      "policy": "attest.intent.v5.1",
+      "removed": [
+        "tests/test_musllinux.py:57"
+      ],
+      "certified": false,
+      "why": "intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment ",
+      "contracts": []
+    },
+    {
+      "label": "packaging-boundary-08--forward/contract-1/intended-change",
+      "policy": "attest.intent.v6",
+      "removed": [
+        "tests/test_musllinux.py:57"
+      ],
+      "certified": false,
+      "why": "intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment ",
+      "contracts": [
+        {
+          "source": "tests/test_musllinux.py:57",
+          "standing_at_head": false,
+          "admitted": false,
+          "reason": "the change removes or rewrites this contract at head"
+        },
+        {
+          "source": "tests/test_musllinux.py:57",
+          "standing_at_head": false,
+          "admitted": false,
+          "reason": "the source's input ('musl libc (i386)\\nVersion 1.2.1\\n') is not the probe's ('musl libc (x86_64)\\nVersion 1.2.2\\n')"
+        },
+        {
+          "source": "tests/test_musllinux.py:57",
+          "standing_at_head": false,
+          "admitted": false,
+          "reason": "the source's input ('musl libc (aarch64)\\nVersion 1.1.24\\n') is not the probe's ('musl libc (x86_64)\\nVersion 1.2.2\\n')"
+        },
+        {
+          "source": "tests/test_musllinux.py:57",
+          "standing_at_head": false,
+          "admitted": false,
+          "reason": "the source's input ('musl libc (invalid)\\n') is not the probe's ('musl libc (x86_64)\\nVersion 1.2.2\\n')"
+        },
+        {
+          "source": "tests/test_musllinux.py:57",
+          "standing_at_head": false,
+          "admitted": false,
+          "reason": "the source's input ('musl libc (unknown)\\nVersion unknown\\n') is not the probe's ('musl libc (x86_64)\\nVersion 1.2.2\\n')"
+        }
+      ]
+    },
+    {
+      "label": "packaging-boundary-08--forward/contract-2/intended-change",
+      "policy": "attest.intent.v5.1",
+      "removed": [
+        "tests/test_musllinux.py:57"
+      ],
+      "certified": false,
+      "why": "intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment ",
+      "contracts": []
+    },
+    {
+      "label": "packaging-boundary-08--forward/contract-2/intended-change",
+      "policy": "attest.intent.v6",
+      "removed": [
+        "tests/test_musllinux.py:57"
+      ],
+      "certified": false,
+      "why": "intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment ",
+      "contracts": [
+        {
+          "source": "tests/test_musllinux.py:57",
+          "standing_at_head": false,
+          "admitted": false,
+          "reason": "the source's input ('musl libc (x86_64)\\nVersion 1.2.2\\n') is not the probe's ('musl libc (i386)\\nVersion 1.2.1\\n')"
+        },
+        {
+          "source": "tests/test_musllinux.py:57",
+          "standing_at_head": false,
+          "admitted": false,
+          "reason": "the change removes or rewrites this contract at head"
+        },
+        {
+          "source": "tests/test_musllinux.py:57",
+          "standing_at_head": false,
+          "admitted": false,
+          "reason": "the source's input ('musl libc (aarch64)\\nVersion 1.1.24\\n') is not the probe's ('musl libc (i386)\\nVersion 1.2.1\\n')"
+        },
+        {
+          "source": "tests/test_musllinux.py:57",
+          "standing_at_head": false,
+          "admitted": false,
+          "reason": "the source's input ('musl libc (invalid)\\n') is not the probe's ('musl libc (i386)\\nVersion 1.2.1\\n')"
+        },
+        {
+          "source": "tests/test_musllinux.py:57",
+          "standing_at_head": false,
+          "admitted": false,
+          "reason": "the source's input ('musl libc (unknown)\\nVersion unknown\\n') is not the probe's ('musl libc (i386)\\nVersion 1.2.1\\n')"
+        }
+      ]
+    },
+    {
+      "label": "packaging-boundary-08--forward/contract-3/intended-change",
+      "policy": "attest.intent.v5.1",
+      "removed": [
+        "tests/test_musllinux.py:57"
+      ],
+      "certified": false,
+      "why": "intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment ",
+      "contracts": []
+    },
+    {
+      "label": "packaging-boundary-08--forward/contract-3/intended-change",
+      "policy": "attest.intent.v6",
+      "removed": [
+        "tests/test_musllinux.py:57"
+      ],
+      "certified": false,
+      "why": "intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment ",
+      "contracts": [
+        {
+          "source": "tests/test_musllinux.py:57",
+          "standing_at_head": false,
+          "admitted": false,
+          "reason": "the source's input ('musl libc (x86_64)\\nVersion 1.2.2\\n') is not the probe's ('musl libc (aarch64)\\nVersion 1.1.24\\n')"
+        },
+        {
+          "source": "tests/test_musllinux.py:57",
+          "standing_at_head": false,
+          "admitted": false,
+          "reason": "the source's input ('musl libc (i386)\\nVersion 1.2.1\\n') is not the probe's ('musl libc (aarch64)\\nVersion 1.1.24\\n')"
+        },
+        {
+          "source": "tests/test_musllinux.py:57",
+          "standing_at_head": false,
+          "admitted": false,
+          "reason": "the change removes or rewrites this contract at head"
+        },
+        {
+          "source": "tests/test_musllinux.py:57",
+          "standing_at_head": false,
+          "admitted": false,
+          "reason": "the source's input ('musl libc (invalid)\\n') is not the probe's ('musl libc (aarch64)\\nVersion 1.1.24\\n')"
+        },
+        {
+          "source": "tests/test_musllinux.py:57",
+          "standing_at_head": false,
+          "admitted": false,
+          "reason": "the source's input ('musl libc (unknown)\\nVersion unknown\\n') is not the probe's ('musl libc (aarch64)\\nVersion 1.1.24\\n')"
+        }
+      ]
+    },
+    {
+      "label": "packaging-guard_raise-06--forward/contract-1/intended-change",
+      "policy": "attest.intent.v5.1",
+      "removed": [
+        "tests/test_direct_url.py:95"
+      ],
+      "certified": false,
+      "why": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --",
+      "contracts": []
+    },
+    {
+      "label": "packaging-guard_raise-06--forward/contract-1/intended-change",
+      "policy": "attest.intent.v6",
+      "removed": [
+        "tests/test_direct_url.py:95"
+      ],
+      "certified": false,
+      "why": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --",
+      "contracts": [
+        {
+          "source": "tests/test_direct_url.py:110",
+          "standing_at_head": true,
+          "admitted": false,
+          "reason": "the source's input ({'url': 'https://example.com/archive.zip', 'archive_info': {'hash': 'md5:12345'}}) is not the probe's ({'url': 'https://example.com/archive.zip', 'archive_info': {'hashes': {'md5': 12345}}})"
+        },
+        {
+          "source": "tests/test_direct_url.py:128",
+          "standing_at_head": true,
+          "admitted": false,
+          "reason": "the source's input (<unbound>) is not the probe's ({'url': 'https://example.com/archive.zip', 'archive_info': {'hashes': {'md5': 12345}}})"
+        },
+        {
+          "source": "tests/test_direct_url.py:144",
+          "standing_at_head": true,
+          "admitted": false,
+          "reason": "the source's input ({'url': 'https://example.com/archive.zip', 'archive_info': {'hashes': {'md5': '123456'}, 'hash': 'md5=12345'}}) is not the probe's ({'url': 'https://example.com/archive.zip', 'archive_info': {'hashes': {'md5': 12345}}})"
+        },
+        {
+          "source": "tests/test_direct_url.py:196",
+          "standing_at_head": true,
+          "admitted": false,
+          "reason": "the source's input ({'url': 'file:///projects/myproject'}) is not the probe's ({'url': 'https://example.com/archive.zip', 'archive_info': {'hashes': {'md5': 12345}}})"
+        },
+        {
+          "source": "tests/test_direct_url.py:210",
+          "standing_at_head": true,
+          "admitted": false,
+          "reason": "the source's input ({'url': 'https://example.com/projects/myproject', 'dir_info': {}}) is not the probe's ({'url': 'https://example.com/archive.zip', 'archive_info': {'hashes': {'md5': 12345}}})"
+        },
+        {
+          "source": "tests/test_direct_url.py:248",
+          "standing_at_head": true,
+          "admitted": false,
+          "reason": "the source's input (<unbound>) is not the probe's ({'url': 'https://example.com/archive.zip', 'archive_info': {'hashes': {'md5': 12345}}})"
+        },
+        {
+          "source": "tests/test_direct_url.py:256",
+          "standing_at_head": true,
+          "admitted": false,
+          "reason": "the source's input ({'dir_info': {}}) is not the probe's ({'url': 'https://example.com/archive.zip', 'archive_info': {'hashes': {'md5': 12345}}})"
+        },
+        {
+          "source": "tests/test_direct_url.py:268",
+          "standing_at_head": true,
+          "admitted": false,
+          "reason": "the source's input ({'url': 'https://g.c/user/repo.git', 'vcs_info': {'vcs': 'git', 'commit_id': 12345}}) is not the probe's ({'url': 'https://example.com/archive.zip', 'archive_info': {'hashes': {'md5': 12345}}})"
+        },
+        {
+          "source": "tests/test_direct_url.py:95",
+          "standing_at_head": false,
+          "admitted": false,
+          "reason": "the change removes or rewrites this contract at head"
+        }
+      ]
+    },
+    {
+      "label": "urllib3-none_guard-18--forward/contract-1/intended-change",
+      "policy": "attest.intent.v5.1",
+      "removed": [
+        "test/test_poolmanager.py:423"
+      ],
+      "certified": false,
+      "why": "intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment ",
+      "contracts": []
+    },
+    {
+      "label": "urllib3-none_guard-18--forward/contract-1/intended-change",
+      "policy": "attest.intent.v6",
+      "removed": [
+        "test/test_poolmanager.py:423"
+      ],
+      "certified": false,
+      "why": "intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment ",
+      "contracts": [
+        {
+          "source": "test/test_poolmanager.py:423",
+          "standing_at_head": false,
+          "admitted": false,
+          "reason": "the change removes or rewrites this contract at head"
+        },
+        {
+          "source": "test/test_poolmanager.py:424",
+          "standing_at_head": false,
+          "admitted": false,
+          "reason": "the source's input (urllib3.poolmanager.PoolManager() :: urllib3.util.url.Url('https://example.com')) is not the probe's (urllib3.poolmanager.PoolManager() :: urllib3.util.url.Url('http://example.com'))"
+        }
+      ]
+    },
+    {
+      "label": "urllib3-none_guard-18--forward/contract-2/intended-change",
+      "policy": "attest.intent.v5.1",
+      "removed": [
+        "test/test_poolmanager.py:424"
+      ],
+      "certified": false,
+      "why": "intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment ",
+      "contracts": []
+    },
+    {
+      "label": "urllib3-none_guard-18--forward/contract-2/intended-change",
+      "policy": "attest.intent.v6",
+      "removed": [
+        "test/test_poolmanager.py:424"
+      ],
+      "certified": false,
+      "why": "intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment ",
+      "contracts": [
+        {
+          "source": "test/test_poolmanager.py:423",
+          "standing_at_head": false,
+          "admitted": false,
+          "reason": "the source's input (urllib3.poolmanager.PoolManager() :: urllib3.util.url.Url('http://example.com')) is not the probe's (urllib3.poolmanager.PoolManager() :: urllib3.util.url.Url('https://example.com'))"
+        },
+        {
+          "source": "test/test_poolmanager.py:424",
+          "standing_at_head": false,
+          "admitted": false,
+          "reason": "the change removes or rewrites this contract at head"
+        }
+      ]
+    }
+  ],
+  "controls": [
+    {
+      "label": "mahmoud/boltons#467/note-8b21aa6e8626",
+      "policy": "attest.intent.v5.1",
+      "certified": false,
+      "why": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --"
+    },
+    {
+      "label": "mahmoud/boltons#467/note-8b21aa6e8626",
+      "policy": "attest.intent.v6",
+      "certified": false,
+      "why": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --"
+    },
+    {
+      "label": "mahmoud/boltons#467/note-65a74eb579fd",
+      "policy": "attest.intent.v5.1",
+      "certified": false,
+      "why": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --"
+    },
+    {
+      "label": "mahmoud/boltons#467/note-65a74eb579fd",
+      "policy": "attest.intent.v6",
+      "certified": false,
+      "why": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --"
+    },
+    {
+      "label": "mahmoud/boltons#467/note-3b750bb997b9",
+      "policy": "attest.intent.v5.1",
+      "certified": false,
+      "why": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --"
+    },
+    {
+      "label": "mahmoud/boltons#467/note-3b750bb997b9",
+      "policy": "attest.intent.v6",
+      "certified": false,
+      "why": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --"
+    },
+    {
+      "label": "Delgan/loguru#1508/note-7472fb676667",
+      "policy": "attest.intent.v5.1",
+      "certified": false,
+      "why": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --"
+    },
+    {
+      "label": "Delgan/loguru#1508/note-7472fb676667",
+      "policy": "attest.intent.v6",
+      "certified": false,
+      "why": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched --"
+    }
+  ]
+}

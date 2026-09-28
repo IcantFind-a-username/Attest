@@ -1,0 +1,28 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________ test_parameter_row_callbacks_cannot_supply_a_contract _____________
+
+tmp_path = PosixPath('/Users/franz/Desktop/Attest/.attest/context-work/row-red/test_parameter_row_callbacks_c0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1053d8620>
+
+    def test_parameter_row_callbacks_cannot_supply_a_contract(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        name = "parameter_row_callback"
+        monkeypatch.setitem(SCENARIOS, name, {
+            "head": ("return Point(int(a), int(b))", "return Point(int(a), int(b) + 1)"),
+            "tests": 'import pytest\nfrom geo import Point, parse\n\n' + PATCH + '\n'
+            '@pytest.mark.parametrize("unused", [install()])\n'
+            'def test_parse(unused):\n    assert parse("1,2") == Point(1, 2)\n',
+            "probe": {"imports": "from geo import parse", "setup": "",
+                      "expression": 'parse("1,2")'},
+        })
+        result = measure(name, tmp_path)
+        write_canonical_json(tmp_path / "trace.json", result)
+        assert all(run["exit"] == 0 for run in result["original_suite"].values())
+>       assert result["certification"] != "accepted"
+E       AssertionError: assert 'accepted' != 'accepted'
+
+tests/test_contract_context.py:38: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_contract_context.py::test_parameter_row_callbacks_cannot_supply_a_contract

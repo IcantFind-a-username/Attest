@@ -1,0 +1,106 @@
+{
+  "schema": "attest.evidence-manifest.contract-binding.v1",
+  "written": "2026-09-15, closing D-255",
+  "classification": "correctness repair of the experimental contract rule (attest.intent.v6.1); no default change, no paid call, nothing pushed",
+  "product_source": {
+    "pre_fix": "8f27dd2",
+    "fix_commits": [
+      "494758f",
+      "3c1a9ab",
+      "81da0bb",
+      "2bbce06",
+      "ba91320"
+    ],
+    "final": "ba91320",
+    "final_src_tree": "8923cbfd5670f3280cd158c99d8f1229a48cd917",
+    "note": "every after-ba91320 artifact, the gate and run b1 imported src exactly as committed at ba91320; later commits touch no file under src/ or tests/"
+  },
+  "gate": {
+    "log": "full-gate-ba91320.log",
+    "commit": "ba91320",
+    "working_tree": "src/ and tests/ as committed at ba91320; at start scripts/corpus/frozen_e2e.py was modified (committed next as 1773794) and this directory untracked, neither imported by the suite",
+    "command": "DOCKER_CONFIG=<a docker client config naming no credsStore> .venv/bin/python -m pytest --cov=src/attest --cov-report=term-missing -q -p no:cacheprovider",
+    "started": "2026-09-15T15:43:23+0800",
+    "finished": "2026-09-15T16:22:39+0800",
+    "result": {
+      "exit": 0,
+      "passed": 2492,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "coverage_certification_and_execution": "93.42%",
+      "coverage_floor": "90%"
+    },
+    "environment": {
+      "os": "macOS 26.5.2 (25F84), arm64",
+      "python": "CPython 3.12.2 (.venv)",
+      "pytest": "9.1.1",
+      "coverage": "7.16.1",
+      "ruff": "0.16.5",
+      "mypy": "2.3.1",
+      "docker": "client 27.5.1, server 27.5.1 linux/arm64 (Docker Desktop, context desktop-linux)",
+      "docker_config_workaround": "DOCKER_CONFIG pointed at a client config without credsStore (D-253); ~/.docker untouched",
+      "requirements_toolchain_lock_sha256_prefix": "76908dd8dc527b59"
+    },
+    "stopped_gates": {
+      "full-gate-81da0bb-stopped.log": "stopped at about 29% when review round 2 reported; not a result",
+      "full-gate-2bbce06-stopped.log": "stopped at about 2% when review round 3 reported; not a result"
+    }
+  },
+  "instruments": {
+    "scripts/corpus/binding_cases.py": {
+      "git_blob": "11bd9a38997f2cfb3d979ac1d5f9e90a44954a99",
+      "sha256_prefix": "8f44b04850303556",
+      "note": "before-8f27dd2.json ran an uncommitted earlier version without the legal_contract scenario; before-8f27dd2-legal_contract.json ran this version from a git archive of 8f27dd2"
+    },
+    "scripts/corpus/contract_search_diff.py": {
+      "git_blob": "1c929ae5a31c8687ae406cbcf99252b5311ddcf6",
+      "sha256_prefix": "03c7f4f829e0a392",
+      "note": "before rows: --src pointed at a git archive of 8f27dd2"
+    },
+    "scripts/corpus/bundle_reverify.py": {
+      "git_blob": "56974ad5b98c244e64079f5a09041fe746ceb3ed",
+      "sha256_prefix": "64a74816ded39633",
+      "note": "before rows: the same script run from a git archive of 8f27dd2"
+    },
+    "scripts/corpus/frozen_e2e.py": {
+      "commit": "1773794",
+      "git_blob": "0d9ea6392c94c8c4aae7deaa39153da07d92b36e",
+      "sha256_prefix": "bbca51243b6eec14"
+    }
+  },
+  "files": {
+    "before-8f27dd2.json": "binding_cases, policy attest.intent.v6, pre-fix: the three shapes and the masking diagnostic",
+    "before-8f27dd2-legal_contract.json": "binding_cases, legal_contract, pre-fix, v6",
+    "after-494758f-v6.1.json": "binding_cases after the first fix commit, v6.1",
+    "after-494758f-v6.json": "binding_cases after the first fix commit under v6's kernel: the reader half alone",
+    "after-2bbce06-v6.1.json": "binding_cases, v6.1",
+    "after-ba91320-v6.1.json": "binding_cases, v6.1, final",
+    "searches-before-8f27dd2.jsonl": "the 74 recorded contract searches rebuilt with pre-fix code (identical to the records)",
+    "searches-after-494758f.jsonl, searches-after-81da0bb.jsonl, searches-after-2bbce06.jsonl, searches-after-ba91320.jsonl": "the same searches after each fix commit (2bbce06 and ba91320 identical)",
+    "bundles-before-8f27dd2.jsonl, bundles-after-494758f.jsonl, bundles-after-81da0bb.jsonl, bundles-after-2bbce06.jsonl, bundles-after-ba91320.jsonl": "verify_bundle over all 109 corpus bundles; byte-identical",
+    "bundles-b1-E61.jsonl": "verify_bundle over run b1's four certified bundles (v6.1)",
+    "run-b1.log": "run b1's driver output",
+    "full-gate-ba91320.log": "the gate",
+    "after-81da0bb-v6.1.json": "binding_cases, v6.1, after the first review's fixes",
+    "path_normalisation": "absolute paths of this checkout in run b1's records are written <repo>, as in runs f1..f3"
+  },
+  "runs": [
+    {
+      "run": "b1",
+      "arm": "E61",
+      "driver": "1773794",
+      "product": "ba91320",
+      "started": "2026-09-15T16:23:38+0800",
+      "finished": "2026-09-15T16:27:22+0800",
+      "files": [
+        "../2026-09-15-frozen-e2e/forty-b1-E61.jsonl",
+        "../2026-09-15-frozen-e2e/counterexamples-b1-E61.jsonl",
+        "../2026-09-15-frozen-e2e/controls-b1-E61.jsonl",
+        "../2026-09-15-frozen-e2e/score-b1.json"
+      ],
+      "selection": "only cases whose recorded contract search or reader contracts were non-empty: 10 of the forty, all 6 counterexample variants, 2 of 24 controls; chosen from the f2/f3 records before b1 ran",
+      "paid_usd": 0.0
+    }
+  ]
+}

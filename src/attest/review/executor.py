@@ -26,6 +26,7 @@ from attest.certification.binding import (
     binding_verdict,
 )
 from attest.certification.intent import (
+    INTENT_POLICY_VERSION,
     IntentObservation,
     evidence_class_for,
     intent_verdict,
@@ -37,6 +38,8 @@ from attest.execution.types import ResourceLimits
 from attest.review.boundary import changed_conditions
 from attest.review.budget import Budget
 from attest.review.candidates import StoredCandidate
+from attest.review.contracts import ContractProbe, ContractSearch
+from attest.review.contracts import contract_probes as derive_contract_probes
 from attest.review.diffs import parse_diff
 from attest.review.gate import GateResult, apply_verification
 from attest.review.index import tree_index
@@ -491,6 +494,9 @@ class DifferentialExecution:
     probe: ProbeObservation | None = None  # D-146: what base did, recorded
     # D-213: every run the recording phase bought, in the order it bought them
     recording_runs: tuple[RecordingRun, ...] = ()
+    # D-254, experimental: what the fixed rule built from the base tree's contracts
+    # for this candidate, when the contract search ran; None when it did not
+    contract_search: ContractSearch | None = None
 
     @property
     def contained_attempts(self) -> tuple[str, ...]:
@@ -2467,6 +2473,7 @@ def _choose_probe(
     diff_text: str = "",
     asserted: Sequence[str] = (),
     conditions: Sequence[str] = (),
+    contracts: Sequence[ContractProbe] = (),
 ) -> _Chosen | _Recording:
     """Try the free probes first, then **search** with the paid one (D-206, D-216).
 
@@ -2500,11 +2507,43 @@ def _choose_probe(
         exhausted_deadline=True,
     )
     screened = 0
+    # --- D-254, experimental: the base tree's contracts, before the model -----
+    # Each contract probe is recorded on the merge base and screened once on
+    # head, exactly as a model probe is; the first whose head observation
+    # differs is the probe. Free: nothing is asked of the model, and a probe the
+    # base cannot record or that head does not change is screened out.
+    for contract in contracts:
+        recorded_contract = record(contract.spec)
+        if recorded_contract.exhausted_deadline:
+            return recorded_contract
+        if recorded_contract.observation is None:
+            screened += 1
+            continue
+        contract_screen = screen_on_head(contract.spec)
+        if contract_screen is None:
+            return deadline_recording(contract.spec)
+        if contract_screen.differs_from(recorded_contract.observation):
+            return _Chosen(
+                probe=contract.spec,
+                observation=recorded_contract.observation,
+                source="contract",
+                origin=contract.origin,
+                attempts=0,
+                screened=screened,
+                attempt_index=1,
+                feedback_kind="",
+                head_observation=contract_screen.observation,
+            )
+        screened += 1
     if reprobe is None and model_probe is None:
         return _Recording(
             probe=ProbeSpec("", "", ""),
             observation=None,
-            reason="no probe was available",
+            reason=(
+                f"{screened} contract probe(s) screened out and no model probe was available"
+                if screened
+                else "no probe was available"
+            ),
             attempts=0,
         )
 
@@ -2613,7 +2652,7 @@ def _choose_probe(
         "no-difference": EvidenceClass.NOT_REPRODUCED,
         "head-warning": EvidenceClass.INDETERMINATE,
     }
-    prefix = f"{screened} derived probe(s) screened out first; " if screened else ""
+    prefix = f"{screened} contract probe(s) screened out first; " if screened else ""
     reason = f"{prefix}{bought} probes tried and none produced a differential: {tally}"
     if notes:
         # the recorder's own sentence for the probes that recorded nothing at
@@ -2644,6 +2683,8 @@ def execute_differential(
     probe: ProbeSpec | None = None,
     reprobe: Callable[[str], ProbeSpec] | None = None,
     contained_attempt_voids: bool = False,
+    intent_policy: str = INTENT_POLICY_VERSION,
+    contract_probes: bool = False,
 ) -> DifferentialExecution:
     """Run the same reproduction repeatedly against detached head/base
     worktrees. Only a deterministic head failure that shows the code
@@ -2668,6 +2709,7 @@ def execute_differential(
     intents: list[IntentObservation] = []
     probes: list[ProbeObservation] = []
     recordings: list[RecordingRun] = []  # D-213
+    contract_searches: list[ContractSearch] = []  # D-254
 
     def finish(
         outcome: ExecutionOutcome,
@@ -2691,6 +2733,7 @@ def execute_differential(
             intent=intents[0] if intents else None,
             probe=probes[0] if probes else None,
             recording_runs=tuple(recordings),
+            contract_search=contract_searches[0] if contract_searches else None,
             # read at call time: after a D-114 regeneration this is the round's
             # spec, not the one the caller passed in
             executed_spec=spec,
@@ -2769,7 +2812,9 @@ def execute_differential(
         # the merge base does with the model's chosen call, and write the test
         # from that recording -- so the expectation the differential asserts was
         # measured on base rather than guessed at from the diff.
-        if probe is not None:
+        # D-254: with the contract search on, the first model probe is not bought
+        # up front -- the search asks for it only after the contract probes
+        if probe is not None or (contract_probes and reprobe is not None):
 
             def run_probe(index: int, body: str) -> ExecutionResult | None:
                 """One recording run on base, with the probe file in place of the
@@ -2846,6 +2891,11 @@ def execute_differential(
                 )
             except OSError:
                 base_text = ""
+            if contract_probes:
+                search = derive_contract_probes(
+                    trees_dir / "base", candidate.finding.file, touched
+                )
+                contract_searches.append(search)
             outcome = _choose_probe(
                 model_probe=probe,
                 reprobe=reprobe,
@@ -2857,6 +2907,7 @@ def execute_differential(
                 diff_text=_diff_text(repo_root, base_sha, head_sha, candidate.finding.file),
                 asserted=asserted_values_about(trees_dir / "base", touched) if touched else (),
                 conditions=changed_conditions(base_text, head_text, changed_for_probe),
+                contracts=contract_searches[0].probes if contract_searches else (),
             )
             if isinstance(outcome, _Recording):
                 if outcome.exhausted_deadline:
@@ -3104,6 +3155,9 @@ def execute_differential(
             truncated=any(run.raise_origins_truncated for run in head_runs),
             base_tree=trees_dir / "base",
             head_tree=trees_dir / "head",
+            # D-253: the shipped rule unless a harness names another one; no
+            # product caller passes this
+            policy_version=intent_policy,
         )
         if isinstance(observed, str):
             return deferred(f"intent: {observed}")
@@ -3295,6 +3349,8 @@ def verify_candidate(
     ledger: Ledger | None = None,
     probe_call: ProbeCall | None = None,
     probe_effort: str = PROBE_EFFORT_DEFAULT,
+    intent_policy: str = INTENT_POLICY_VERSION,
+    contract_probes: bool = False,
 ) -> VerificationRun:
     """Generate a reproduction and run it on both revisions.
 
@@ -3377,7 +3433,9 @@ def verify_candidate(
             )
 
         try:
-            probe = choose_probe() if probe_generation else None
+            # D-254: the contract search runs before any model probe is bought
+            searching_contracts = contract_probes and probe_generation
+            probe = choose_probe() if probe_generation and not searching_contracts else None
             spec = ReproSpec(test_body="") if probe_generation else generate()
         except Exception as exc:  # noqa: BLE001 - generation failures are ternary DEFER
             execution = deferred_execution(
@@ -3399,6 +3457,8 @@ def verify_candidate(
                 probe=probe,
                 reprobe=choose_probe if probe_generation else None,
                 contained_attempt_voids=contained_attempt_voids,
+                intent_policy=intent_policy,
+                contract_probes=searching_contracts,
             )
 
     journal = ledger if ledger is not None else Ledger(repo)
@@ -3431,9 +3491,35 @@ def verify_candidate(
         repeats=execution.repeats,
         evidence_class=execution.evidence_class.value,
         run_evidence=_differential_run_evidence(execution),
-        intent=None if execution.intent is None else asdict(execution.intent),
+        intent=None if execution.intent is None else execution.intent.record(),
         contained_attempts=list(execution.contained_attempts) or None,
     )
+    if execution.contract_search is not None:
+        # D-254, experimental: what the fixed rule built and refused, and which
+        # contract probe (if any) the search chose -- in the ledger and nowhere else
+        search = execution.contract_search
+        journal.append(
+            {
+                "kind": "contract_search",
+                "schema_version": "attest.contract-search.v1",
+                "task_id": candidate.task_id,
+                "finding_id": candidate.finding.finding_id,
+                "symbols": list(search.symbols),
+                "probes": [
+                    {"origin": c.origin, "kind": c.kind, "imports": c.spec.imports,
+                     "setup": c.spec.setup, "expression": c.spec.expression}
+                    for c in search.probes
+                ],
+                "refused": [list(item) for item in search.refused[:MAX_STATUS_LINES]],
+                "refused_count": len(search.refused),
+                "truncated": search.truncated,
+                "chosen": (
+                    execution.probe.origin
+                    if execution.probe is not None and execution.probe.source == "contract"
+                    else ""
+                ),
+            }
+        )
     if execution.probe is not None:
         # D-146: the recording is audit, not certification. It goes in the ledger
         # rather than the receipt, because every field added to the receipt

@@ -1,0 +1,3 @@
+{"label": "packaging-boundary-08", "sites": 1, "results": [{"schema": "attest.runtime-contract-shadow.v2", "status": "defer", "reason": "node did not complete exactly once without skip or executor refusal", "receipt_eligible": false, "trust": "same-process-shadow"}]}
+{"label": "packaging-guard_raise-06", "sites": 0, "results": []}
+{"label": "urllib3-none_guard-18", "sites": 0, "results": []}

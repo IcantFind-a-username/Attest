@@ -291,3 +291,40 @@ def test_a_v41_receipt_is_still_judged_under_v41() -> None:
     )
 
     assert intent_verdict(older) is None
+
+
+# --- a bound is not a verdict (D-249) -------------------------------------------
+
+
+def _wide_module(body: str, *, fillers: int) -> str:
+    """``body`` after ``fillers`` one-line definitions: a module the size of
+    ``more_itertools/more.py`` (225 defs and classes at the mutation corpus tip)."""
+    return "".join(f"def filler_{i}():\n    return {i}\n\n\n" for i in range(fillers)) + body
+
+
+def test_a_file_with_more_than_two_hundred_definitions_still_anchors_its_symbol(
+    tmp_path: Path,
+) -> None:
+    """`symbol_ranges` refused any file holding more than ``MAX_SYMBOLS`` defs,
+    so on such a file every value receipt was drawered as *no symbol to
+    specify* -- 4 of the 40 mutation cases, all in ``more_itertools/more.py``
+    (arm C, 2026-09-14). A bound on the record is fine; a bound that decides a
+    verdict is not. The touched symbol is anchored and the base test that
+    asserts the value about it stands as the specification."""
+    fillers = 240
+    base = _wide_module(CONV_BASE, fillers=fillers)
+    head = _wide_module(CONV_HEAD, fillers=fillers)
+    changed_line = fillers * 4 + 3  # the `return` of `convert`, after the fillers
+    assert head.splitlines()[changed_line - 1].strip() == "return n + 7"
+
+    observed = _observe(
+        tmp_path,
+        base={"convert.py": base, "tests/test_convert.py": ASSOCIATED_ATTRIBUTE},
+        head={"convert.py": head, "tests/test_convert.py": ASSOCIATED_ATTRIBUTE},
+        changed=(changed_line,),
+    )
+
+    assert observed.anchored_symbols == ("convert",)
+    assert observed.pinned_values == ("7",)
+    assert observed.value_specified == (("7", "tests/test_convert.py"),)
+    assert intent_verdict(observed) is None

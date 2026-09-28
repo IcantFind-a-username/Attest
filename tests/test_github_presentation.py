@@ -5,9 +5,35 @@ from pathlib import Path
 
 import pytest
 
+from attest.github.presentation import inline_comments, render_complete
 from attest.review.channels import ChannelPurchase
 from attest.review.gate import GateResult
+from attest.review.output_contract import check_summary
 from attest.review.schema import Finding
+
+
+def test_partial_review_keeps_findings_and_visible_coverage(certified_factory) -> None:
+    body = render_complete([certified_factory()], 0.0, 1.0, units=(1, 4), unverified=2)
+    assert "[silent]" not in body and "[red]" in body
+    assert "Review coverage: read 1 of 4 units; 2 known candidate(s) not verified." in body
+    assert check_summary(body)
+
+
+def test_each_finding_is_a_separate_paragraph_with_collapsed_metadata(certified_factory) -> None:
+    findings = [certified_factory(claim=f"Failure {i}.", line=i) for i in (1, 2)]
+    summary = render_complete(findings, 0.0, 1.0)
+    assert summary.startswith(
+        "### Verified findings (each backed by a reproduction receipt): 2\n\n"
+    )
+    assert "\n\n- <!-- attest:finding-id:" in summary
+    assert "\n\nSpend" in summary
+    for finding, comment in zip(findings, inline_comments(findings), strict=True):
+        body = str(comment["body"])
+        visible, details = body.split("<details>", 1)
+        assert "\n\nVerified:" in visible
+        assert "\n\nAction:" in visible
+        assert "Finding ID:" not in visible and "Test:" not in visible
+        assert finding.accepted_receipt.receipt.provenance_digest in details
 
 
 def _result(

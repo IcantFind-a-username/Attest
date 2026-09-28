@@ -300,3 +300,22 @@ an image-build fix, not a generation fix, and it would have changed none of the 
   gains a `checks` job on `pull_request` -- ruff, mypy, `git diff --check`, the wheel build and
   the suite without the container isolation matrix, the red-team matrix and the release drills;
   `gates` keeps those on push to `main`, with the coverage floor.
+
+- **Experimental contract promotion: implicit test context (D-255, retained at D-256).**
+  D-257 refuses reproduced local fixtures/hooks, active conftest and executable decorator
+  arguments, at the cost of all three measured contract gains. Transitive imports, ambient
+  plugins, prior-test state and actual original-node/assertion execution remain unproved.
+  Keep promotion blocked; next evaluate a claim-bound witness within real test context,
+  without treating passing tests or an increasingly long static refusal list as that proof.
+  [Evidence](acceptance/2026-09-15-contract-context.md).
+- **Contract-first selection can mask a certifiable model probe (D-255 diagnostic).**
+  A first differential that cannot certify stops search. Design a precommitted allocation
+  and evaluate gains/losses before changing selection; do not add outcome-aware gate hunting.
+- **Runtime contract shadow promotion blockers (D-258).** Same-process observations are
+  forgeable and omit hidden globals/defaults/transitive state. D-259 resolves bounded
+  parameter-node consistency in shadow, including refused-node reports; raises/helper
+  binding remains unsupported and unrelated assertions can crowd out discovery reasons.
+  Specify a trusted-observation contract and threat model, including a well-formed forgery
+  reproduction, before a certification proposal. This is a decision package input, not
+  authority to promote the prototype. [D-258 evidence](acceptance/2026-09-15-runtime-contract-shadow.md),
+  [D-259 evidence](acceptance/2026-09-15-runtime-parameters.md).

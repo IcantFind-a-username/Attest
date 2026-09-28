@@ -1,0 +1,43 @@
+FF....                                                                   [100%]
+=================================== FAILURES ===================================
+_ test_parameter_rows_bind_by_identity_and_keep_all_outcomes[parameter_regression] _
+
+observations = {'cache_clear_fixture': {'label': 'cache_clear_fixture', 'base_sha': '2fcf89fb67fa662ee85d7a7332e5026a9463d6b1', 'head...a695ee1', 'head_sha': '0df6b606811870ec924f96079f2ae5ef30f85e09', 'changed': {'geo.py': ('Label', 'parse')}, ...}, ...}
+name = 'parameter_regression'
+
+    @pytest.mark.parametrize("name", PARAMETER_NAMES)
+    def test_parameter_rows_bind_by_identity_and_keep_all_outcomes(
+        observations: dict[str, Any], name: str,
+    ) -> None:
+        result = observations[name]["sites"][0]["verdict"]
+        positive = name in ("parameter_regression", "parameter_reordered")
+>       assert result["status"] == ("binding_observed" if positive else "defer"), result
+E       AssertionError: {'schema': 'attest.runtime-contract-shadow.v2', 'status': 'defer', 'reason': 'node did not complete exactly once without skip or executor refusal', 'receipt_eligible': False, ...}
+E       assert 'defer' == 'binding_observed'
+E         
+E         - binding_observed
+E         + defer
+
+tests/test_runtime_contract.py:171: AssertionError
+_ test_parameter_rows_bind_by_identity_and_keep_all_outcomes[parameter_reordered] _
+
+observations = {'cache_clear_fixture': {'label': 'cache_clear_fixture', 'base_sha': '2fcf89fb67fa662ee85d7a7332e5026a9463d6b1', 'head...a695ee1', 'head_sha': '0df6b606811870ec924f96079f2ae5ef30f85e09', 'changed': {'geo.py': ('Label', 'parse')}, ...}, ...}
+name = 'parameter_reordered'
+
+    @pytest.mark.parametrize("name", PARAMETER_NAMES)
+    def test_parameter_rows_bind_by_identity_and_keep_all_outcomes(
+        observations: dict[str, Any], name: str,
+    ) -> None:
+        result = observations[name]["sites"][0]["verdict"]
+        positive = name in ("parameter_regression", "parameter_reordered")
+>       assert result["status"] == ("binding_observed" if positive else "defer"), result
+E       AssertionError: {'schema': 'attest.runtime-contract-shadow.v2', 'status': 'defer', 'reason': 'node did not complete exactly once without skip or executor refusal', 'receipt_eligible': False, ...}
+E       assert 'defer' == 'binding_observed'
+E         
+E         - binding_observed
+E         + defer
+
+tests/test_runtime_contract.py:171: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_runtime_contract.py::test_parameter_rows_bind_by_identity_and_keep_all_outcomes[parameter_regression]
+FAILED tests/test_runtime_contract.py::test_parameter_rows_bind_by_identity_and_keep_all_outcomes[parameter_reordered]

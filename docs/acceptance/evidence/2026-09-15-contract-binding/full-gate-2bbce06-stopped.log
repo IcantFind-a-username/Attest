@@ -1,0 +1,5 @@
+# full gate, commit 2bbce06, started 2026-09-15T15:38:22+0800
+# working tree (untracked/modified, not imported by the suite):  M scripts/corpus/frozen_e2e.py;?? docs/acceptance/evidence/2026-09-15-contract-binding/;
+# command: DOCKER_CONFIG=<client config without credsStore> .venv/bin/python -m pytest --cov=src/attest --cov-report=term-missing -q -p no:cacheprovider
+........................................................................ [  2%]
+.......................................................

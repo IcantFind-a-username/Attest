@@ -70,9 +70,17 @@ def text_digest(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
-def certification_policy(repeats: int, profile: str = EXECUTOR_PROFILE) -> CertificationPolicy:
+def certification_policy(
+    repeats: int,
+    profile: str = EXECUTOR_PROFILE,
+    intent_policy_version: str = INTENT_POLICY_VERSION,
+) -> CertificationPolicy:
     """The policy the current product enforces: N/N differential repeats on
-    exactly one executor profile (X-02: production lists the container)."""
+    exactly one executor profile (X-02: production lists the container).
+
+    ``intent_policy_version`` is the shipped rule; D-253's container pairing names
+    the experimental one so that a v6 receipt is validated against a v6 policy.
+    No product caller passes it."""
     return CertificationPolicy(
         schema_version=CERTIFICATION_POLICY_SCHEMA_VERSION,
         receipt_schema_version=CERTIFICATION_RECEIPT_SCHEMA_VERSION,
@@ -84,7 +92,7 @@ def certification_policy(repeats: int, profile: str = EXECUTOR_PROFILE) -> Certi
             EvidenceClass.BEHAVIOR_CHANGE.value,
         ),
         binding_policy_version=BINDING_POLICY_VERSION,
-        intent_policy_version=INTENT_POLICY_VERSION,
+        intent_policy_version=intent_policy_version,
     )
 
 

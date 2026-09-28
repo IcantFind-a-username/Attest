@@ -1,0 +1,65 @@
+........FF...                                                            [100%]
+=================================== FAILURES ===================================
+_ test_context_screen_has_an_explicit_local_subset[@pytest.mark.parametrize("unused", [0], ids=install())\ndef test_x(unused): pass\n-True] _
+
+tmp_path = PosixPath('/private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80000gn/T/pytest-of-franz/pytest-112/test_context_screen_has_an_exp8')
+source = '@pytest.mark.parametrize("unused", [0], ids=install())\ndef test_x(unused): pass\n'
+refused = True
+
+    @pytest.mark.parametrize(("source", "refused"), [
+        ('"doc"\nfrom geo import parse\nVALUE = (1, 2)\ndef test_x(): pass\n', False),
+        ('from helpers import setup_module\n', True),
+        ('if FLAG:\n    from helpers import setup_function\n', True),
+        ('@alias\ndef fixture(): pass\n', True),
+        ('@wrapper\ndef test_x(): pass\n', True),
+        ('@pytest.fixture(autouse=True)\ndef test_fixture(): pass\n', True),
+        ('def helper(x=install()): pass\n', True),
+        ('def helper(x: install()): pass\n', True),
+        ('@pytest.mark.parametrize("unused", [0], ids=install())\ndef test_x(unused): pass\n', True),
+        ('@pytest.mark.parametrize("unused", [0], ids=callback)\ndef test_x(unused): pass\n', True),
+        ('class TestSomething(Base): pass\n', True),
+        ('class TestSomething:\n    def setUp(self): pass\n', True),
+        ('state.member = 1\n', True),
+    ])
+    def test_context_screen_has_an_explicit_local_subset(
+        tmp_path: Path, source: str, refused: bool,
+    ) -> None:
+        reason = context_refusal(tmp_path, Path("tests/test_x.py"), ast.parse(source))
+>       assert bool(reason) is refused
+E       AssertionError: assert False is True
+E        +  where False = bool('')
+
+tests/test_contract_context.py:61: AssertionError
+_ test_context_screen_has_an_explicit_local_subset[@pytest.mark.parametrize("unused", [0], ids=callback)\ndef test_x(unused): pass\n-True] _
+
+tmp_path = PosixPath('/private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80000gn/T/pytest-of-franz/pytest-112/test_context_screen_has_an_exp9')
+source = '@pytest.mark.parametrize("unused", [0], ids=callback)\ndef test_x(unused): pass\n'
+refused = True
+
+    @pytest.mark.parametrize(("source", "refused"), [
+        ('"doc"\nfrom geo import parse\nVALUE = (1, 2)\ndef test_x(): pass\n', False),
+        ('from helpers import setup_module\n', True),
+        ('if FLAG:\n    from helpers import setup_function\n', True),
+        ('@alias\ndef fixture(): pass\n', True),
+        ('@wrapper\ndef test_x(): pass\n', True),
+        ('@pytest.fixture(autouse=True)\ndef test_fixture(): pass\n', True),
+        ('def helper(x=install()): pass\n', True),
+        ('def helper(x: install()): pass\n', True),
+        ('@pytest.mark.parametrize("unused", [0], ids=install())\ndef test_x(unused): pass\n', True),
+        ('@pytest.mark.parametrize("unused", [0], ids=callback)\ndef test_x(unused): pass\n', True),
+        ('class TestSomething(Base): pass\n', True),
+        ('class TestSomething:\n    def setUp(self): pass\n', True),
+        ('state.member = 1\n', True),
+    ])
+    def test_context_screen_has_an_explicit_local_subset(
+        tmp_path: Path, source: str, refused: bool,
+    ) -> None:
+        reason = context_refusal(tmp_path, Path("tests/test_x.py"), ast.parse(source))
+>       assert bool(reason) is refused
+E       AssertionError: assert False is True
+E        +  where False = bool('')
+
+tests/test_contract_context.py:61: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_contract_context.py::test_context_screen_has_an_explicit_local_subset[@pytest.mark.parametrize("unused", [0], ids=install())\ndef test_x(unused): pass\n-True]
+FAILED tests/test_contract_context.py::test_context_screen_has_an_explicit_local_subset[@pytest.mark.parametrize("unused", [0], ids=callback)\ndef test_x(unused): pass\n-True]

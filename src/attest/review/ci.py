@@ -2233,7 +2233,9 @@ def run_ci(
     blocked_reason = status.executor_unavailable if status is not None else ""
     blocked_count = status.unsupported_executor if status is not None else 0
     truncation = status.refusal() if status is not None else None
-    summary_body = render_complete(
+
+    def final_summary(*, minimal: bool = False) -> str:
+        return render_complete(
             surfaced,
             review.budget.spent_usd,
             elapsed_s,
@@ -2258,11 +2260,10 @@ def run_ci(
             # `budget-usd` that would have read the unit it stopped on
             refusal=truncation,
             ledger_url=_run_url(),
-    )
-    # D-204: the whole summary body is adjudicated, not only the lines inside
-    # it. A body the contract refuses is not published as it stands; what
-    # replaces it is the deterministic silence line the same run already owes,
-    # and the substitution is recorded rather than hidden.
+            minimal=minimal,
+        )
+
+    summary_body = final_summary()
     summary_verdict = check_summary(summary_body)
     if not summary_verdict:
         ledger.append(
@@ -2274,12 +2275,12 @@ def run_ci(
                 "category": summary_verdict.category,
             }
         )
-        summary_body = silence_line(
-            units_read=status.units_read if status is not None else 0,
-            units_planned=(status.units_planned or status.units_read) if status is not None else 0,
-            spend_usd=review.budget.spent_usd,
-            elapsed_s=elapsed_s,
-        )
+        # Keep the selected members, their identities and the run's limits.
+        # Formatting cannot turn a published receipt into a silence claim.
+        summary_body = final_summary(minimal=True)
+        fallback_verdict = check_summary(summary_body)
+        if not fallback_verdict:
+            raise ValueError(f"summary fallback refused: {fallback_verdict.reason}")
     complete_body = _with_run_status(ledger, task_id, summary_body)
     try:
         prepared = _prepare_status_delivery(client, context, complete_body)
