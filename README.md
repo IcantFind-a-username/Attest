@@ -215,4 +215,4 @@ guarantee. Attest keeps the useful engineering lessons—explicit evidence purch
 correlation skepticism, auditability, and abstention—while moving final authority to a
 separate executable-evidence certificate.
 
-License: Apache-2.0. Copyright 2026 Franz Xu.
+License: Apache-2.0. Copyright 2026 the author.
